@@ -15,13 +15,11 @@ const envConfig = {
 
 if (APP_ENV === 'dev') {
   envConfig.name = `${baseName} (dev)`;
-  envConfig.slug = `${baseName}-dev`;
   envConfig.scheme = `${baseName}-dev`;
   envConfig.bundleIdentifier = `${basePackage}.dev`;
   envConfig.package = `${basePackage}.dev`;
 } else if (APP_ENV === 'prev') {
   envConfig.name = `${baseName} (prev)`;
-  envConfig.slug = `${baseName}-prev`;
   envConfig.scheme = `${baseName}-prev`;
   envConfig.bundleIdentifier = `${basePackage}.prev`;
   envConfig.package = `${basePackage}.prev`;
