@@ -1,0 +1,47 @@
+{
+  "cli": {
+    "version": ">= 7.0.0"
+  },
+  "build": {
+    "production": {
+      "env": {
+        "APP_ENV": "production"
+      },
+      "distribution": "store",
+      "ios": {
+        "autoIncrement": true
+      },
+      "android": {
+        "autoIncrement": true
+      }
+    },
+    "preview": {
+      "env": {
+        "APP_ENV": "prev"
+      },
+      "distribution": "internal",
+      "ios": {
+        "autoIncrement": true
+      },
+      "android": {
+        "autoIncrement": true
+      }
+    },
+    "development": {
+      "env": {
+        "APP_ENV": "dev"
+      },
+      "distribution": "internal",
+      "ios": {
+        "autoIncrement": true
+      },
+      "android": {
+        "autoIncrement": true
+      },
+      "developmentClient": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
