@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { useAuth } from 'hakgyo-expo-sdk';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -64,13 +64,14 @@ export function AuthCard({ className }: AuthCardProps) {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className={cn('flex-1 justify-center p-6', className)}>
+    <ScrollView
+      contentContainerClassName="flex-grow justify-center p-6"
+      keyboardShouldPersistTaps="handled"
+      className={cn('flex-1', className)}>
       <View className="w-full max-w-sm mx-auto">
         <Card>
           <CardHeader>
-            <CardTitle>Welcome</CardTitle>
+            <CardTitle className='text-center'>Welcome</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -168,6 +169,6 @@ export function AuthCard({ className }: AuthCardProps) {
           </CardContent>
         </Card>
       </View>
-    </KeyboardAvoidingView>
+    </ScrollView>
   );
 }

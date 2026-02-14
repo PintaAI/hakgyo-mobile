@@ -3,18 +3,43 @@ import { Platform } from 'react-native';
 
 /**
  * Get the base URL for the API based on the environment
- * - Development: localhost for Android emulator (10.0.2.2) or iOS simulator
+ * - Development:
+ *   - For Android emulator: 10.0.2.2
+ *   - For real Android device (WiFi): Host IP address (e.g. 192.168.x.x or 100.x.x.x)
+ *   - For iOS simulator: localhost
  * - Production/Preview: https://hakgyo.vercel.app/
  */
 export function getBaseUrl(): string {
   const isDev = __DEV__;
 
   if (isDev) {
-    // For Android emulator, use 10.0.2.2 to access host's localhost
-    // For iOS simulator, localhost works directly
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:3000';
+    // 1. Prioritize environment variable if set (works for both real device & emulator if configured)
+    const devServerIp = process.env.EXPO_PUBLIC_DEV_SERVER_IP || process.env.DEV_SERVER_IP;
+    if (devServerIp) {
+       // Ensure protocol is present
+       const url = devServerIp.startsWith('http') ? devServerIp : `http://${devServerIp}:3000`;
+       console.log('[Config] Using custom DEV_SERVER_IP:', url);
+       return url;
     }
+
+    // 2. Try to infer from Expo manifest (debuggerHost) - this is the most reliable for WiFi debugging
+    // debuggerHost usually looks like "192.168.1.5:8081"
+    const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
+    
+    if (debuggerHost) {
+      const ip = debuggerHost.split(':')[0];
+      const url = `http://${ip}:3000`; // Assuming backend is on port 3000
+      console.log('[Config] Inferred host IP from Expo debuggerHost:', url);
+      return url;
+    }
+
+    // 3. Fallbacks for specific environments
+    if (Platform.OS === 'android') {
+        // If we can't find the IP, 10.0.2.2 is the safe default for Emulators.
+        // For real devices without the IP logic above, this will fail.
+        return 'http://10.0.2.2:3000';
+    }
+
     // iOS simulator or web dev
     return 'http://localhost:3000';
   }

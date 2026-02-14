@@ -12,8 +12,8 @@ interface SignoutButtonProps extends Omit<ButtonProps, 'onPress'> {
 
 export function SignoutButton({
   onSignout,
-  signoutText = 'Sign Out',
-  loadingText = 'Signing out...',
+  signoutText = 'Keluar',
+  loadingText = 'Loading...',
   ...buttonProps
 }: SignoutButtonProps) {
   const { signOut } = useAuth();
@@ -32,7 +32,7 @@ export function SignoutButton({
   };
 
   return (
-    <Button onPress={handleSignout} disabled={isLoading} {...buttonProps}>
+    <Button onPress={handleSignout} variant={'destructive'} disabled={isLoading} {...buttonProps}>
       <Text>{isLoading ? loadingText : signoutText}</Text>
     </Button>
   );
