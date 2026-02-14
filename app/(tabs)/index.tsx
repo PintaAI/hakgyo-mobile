@@ -24,7 +24,7 @@ function HeaderTitle() {
         style={{ width: 24, height: 24 }}
         resizeMode="contain"
       />
-      <Text className="text-xl font-bold">Hakgyo</Text>
+      <Text className="text-xl font-bold">Hakgyo v1.1</Text>
     </View>
   );
 }

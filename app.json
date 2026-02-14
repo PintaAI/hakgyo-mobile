@@ -13,7 +13,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "jsEngine": "hermes"
+      "jsEngine": "hermes",
+      "bundleIdentifier": "com.rorez.hakgyo"
     },
     "android": {
       "edgeToEdgeEnabled": true,
@@ -21,7 +22,9 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.rorez.hakgyo",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -30,6 +33,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-updates",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
@@ -52,6 +57,12 @@
         "projectId": "ac6b5f66-f4d6-4368-aa57-4bba54c533c3"
       }
     },
-    "owner": "rorez"
+    "owner": "rorez",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ac6b5f66-f4d6-4368-aa57-4bba54c533c3"
+    }
   }
 }
