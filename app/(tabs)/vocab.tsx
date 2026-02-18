@@ -1,17 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
-import { BookOpen, Gamepad2 } from 'lucide-react-native';
-import { MOCK_DATA } from '@/data/mock-vocabulary';
-import { VocabList, VocabGame } from '@/components/vocab';
-
-type Tab = 'list' | 'game';
+import { VocabSet } from '@/components/vocab';
+import { MOCK_VOCAB_SETS } from '@/data/mock-vocab-sets';
+import { VocabularyItem } from '@/data/mock-vocabulary';
+import { VocabItemsDrawer } from '@/components/vocab';
+import { VocabItemBottomSheet } from '@/components/vocab';
 
 export default function VocabScreen() {
-  const [activeTab, setActiveTab] = useState<Tab>('list');
+  const [selectedSetId, setSelectedSetId] = useState<number | null>(null);
+  const [selectedItem, setSelectedItem] = useState<VocabularyItem | null>(null);
+
+  const handleSetPress = useCallback((setId: number) => {
+    setSelectedSetId(setId);
+  }, []);
+
+  const handleItemPress = useCallback((item: VocabularyItem) => {
+    setSelectedItem(item);
+    setSelectedSetId(null); // Close drawer when item is pressed
+  }, []);
+
+  const handleCloseDrawer = useCallback(() => {
+    setSelectedSetId(null);
+  }, []);
+
+  const handleCloseBottomSheet = useCallback(() => {
+    setSelectedItem(null);
+  }, []);
+
+  const handleAudioPress = useCallback(() => {
+    if (selectedItem) {
+      console.log('Play audio for:', selectedItem.korean);
+    }
+  }, [selectedItem]);
+
+  const handleShare = useCallback(() => {
+    if (selectedItem) {
+      console.log('Share item:', selectedItem.korean);
+    }
+  }, [selectedItem]);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -20,35 +48,45 @@ export default function VocabScreen() {
         <View className="px-5 pt-4 pb-2">
           <Text className="text-xl font-semibold">Kosakata</Text>
           <Text className="text-xs text-muted-foreground mt-0.5">
-            {MOCK_DATA.length} kata tersedia
+            {MOCK_VOCAB_SETS.length} set tersedia
           </Text>
         </View>
 
-        {/* Tabs */}
-        <View className="flex-row p-2 gap-2">
-          <Button
-            variant={activeTab === 'list' ? 'default' : 'outline'}
-            className="flex-1"
-            onPress={() => setActiveTab('list')}
-          >
-            <Icon as={BookOpen} size={18} className={activeTab === 'list' ? 'text-primary-foreground' : 'text-foreground'} />
-            <Text className={activeTab === 'list' ? 'text-primary-foreground' : 'text-foreground'}>Daftar</Text>
-          </Button>
-          <Button
-            variant={activeTab === 'game' ? 'default' : 'outline'}
-            className="flex-1"
-            onPress={() => setActiveTab('game')}
-          >
-            <Icon as={Gamepad2} size={18} className={activeTab === 'game' ? 'text-primary-foreground' : 'text-foreground'} />
-            <Text className={activeTab === 'game' ? 'text-primary-foreground' : 'text-foreground'}>Game</Text>
-          </Button>
-        </View>
-
-        {/* Content */}
-        <ScrollView className="flex-1">
-          {activeTab === 'list' ? <VocabList vocabulary={MOCK_DATA} /> : <VocabGame vocabulary={MOCK_DATA} />}
+        {/* Content - Vocab Sets List */}
+        <ScrollView className="flex-1 px-4 py-2">
+          <View className="gap-3">
+            {MOCK_VOCAB_SETS.map((set) => (
+              <VocabSet
+                key={set.id}
+                set={set}
+                onPress={() => handleSetPress(set.id)}
+              />
+            ))}
+          </View>
         </ScrollView>
       </View>
+
+      {/* Vocab Items Drawer */}
+      {selectedSetId && (
+        <VocabItemsDrawer
+          key={`drawer-${selectedSetId}`}
+          setId={selectedSetId}
+          isOpen={!!selectedSetId}
+          onClose={handleCloseDrawer}
+          onItemPress={handleItemPress}
+        />
+      )}
+
+      {/* Vocab Item Detail Bottom Sheet */}
+      {selectedItem && (
+        <VocabItemBottomSheet
+          key={`bottom-sheet-${selectedItem.id}`}
+          item={selectedItem}
+          onClose={handleCloseBottomSheet}
+          onAudioPress={handleAudioPress}
+          onShare={handleShare}
+        />
+      )}
     </SafeAreaView>
   );
 }

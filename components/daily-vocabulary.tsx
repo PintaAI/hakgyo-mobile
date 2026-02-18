@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { vocabularyApi } from 'hakgyo-expo-sdk';
+import { vocabularyApi, useAuth } from 'hakgyo-expo-sdk';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -224,7 +224,11 @@ function BackgroundCard({ item, activeTranslation }: BackgroundCardProps) {
   );
 }
 
-export function DailyVocabulary() {
+interface DailyVocabularyProps {
+  onInputFocusChange?: (isFocused: boolean) => void;
+}
+
+export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
   const [vocabList, setVocabList] = useState<VocabularyItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -234,19 +238,26 @@ export function DailyVocabulary() {
   const [errorTrigger, setErrorTrigger] = useState(0);
   const [activeTranslation, setActiveTranslation] = useState(0);
 
+  const { user } = useAuth();
+
   useEffect(() => {
     (async () => {
       try {
-        const response = await vocabularyApi.listItems({ collectionId: '1' });
-        const data = Array.isArray(response.data) ? response.data : response.data?.data;
-        setVocabList(response.success && data?.length ? data : MOCK_DATA);
+        const response = await vocabularyApi.getDaily({ userId: user?.id || '', take: 10 });
+        setVocabList(response.success && response.data?.length ? response.data : MOCK_DATA);
       } catch {
         setVocabList(MOCK_DATA);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [user?.id]);
+
+  useEffect(() => {
+    return () => {
+      onInputFocusChange?.(false);
+    };
+  }, [onInputFocusChange]);
 
   const nextCard = useCallback(() => {
     setInput('');
@@ -335,6 +346,8 @@ export function DailyVocabulary() {
                 onSubmitEditing={checkAnswer}
                 returnKeyType="done"
                 autoCapitalize="none"
+                onFocus={() => onInputFocusChange?.(true)}
+                onBlur={() => onInputFocusChange?.(false)}
               />
               {showHint && currentVocab && (
                 <Text className="text-xs text-muted-foreground ml-1">

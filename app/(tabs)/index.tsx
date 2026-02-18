@@ -1,12 +1,13 @@
+import { useCallback, useRef, useState } from 'react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Text } from '@/components/ui/text';
 import { BookOpen, ClipboardList, Flame, Trophy, Zap } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
-import { Image, View, ScrollView } from 'react-native';
+import { Image, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from 'hakgyo-expo-sdk';
 import { Card, CardContent, } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DailyVocabulary } from '@/components/daily-vocabulary';
 import { DailySoal } from '@/components/daily-soal';
 
@@ -24,74 +25,94 @@ function HeaderTitle() {
         style={{ width: 24, height: 24 }}
         resizeMode="contain"
       />
-      <Text className="text-xl font-bold">Hakgyo v1.1.1</Text>
+      <Text className="text-xl font-bold">Hakgyo v1.1.2</Text>
     </View>
   );
 }
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const dailyVocabInputFocusedRef = useRef(false);
+  const [isDailyVocabInputFocused, setIsDailyVocabInputFocused] = useState(false);
+
+  const handleDailyVocabInputFocusChange = useCallback((isFocused: boolean) => {
+    dailyVocabInputFocusedRef.current = isFocused;
+    setIsDailyVocabInputFocused(isFocused);
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <ScrollView className="flex-1" contentContainerClassName="p-4 gap-6">
-      {/* Header */}
-      <View className="flex-row justify-between items-center">
-        <HeaderTitle />
-        <ThemeToggle />
-      </View>
-
-      {/* Stats Section */}
-      <View className="flex-row gap-3">
-        <Card className="flex-1">
-          <CardContent className="p-4 items-center gap-2">
-            <Icon as={Flame} size={24} className="text-foreground" />
-            <View className="items-center">
-              <Text className="font-bold text-xl">{user?.currentStreak || 0}</Text>
-              <Text className="text-xs text-muted-foreground">Streak</Text>
-            </View>
-          </CardContent>
-        </Card>
-        <Card className="flex-1">
-          <CardContent className="p-4 items-center gap-2">
-            <Icon as={Trophy} size={24} className="text-foreground" />
-            <View className="items-center">
-              <Text className="font-bold text-xl">{user?.level || 1}</Text>
-              <Text className="text-xs text-muted-foreground">Level</Text>
-            </View>
-          </CardContent>
-        </Card>
-        <Card className="flex-1">
-          <CardContent className="p-4 items-center gap-2">
-            <Icon as={Zap} size={24} className="text-foreground" />
-            <View className="items-center">
-              <Text className="font-bold text-xl">{user?.xp || 0}</Text>
-              <Text className="text-xs text-muted-foreground">XP</Text>
-            </View>
-          </CardContent>
-        </Card>
-      </View>
-
-
-      {/* Daily Vocabulary Section */}
-      <View className="gap-4">
-        <View className="flex-row items-center gap-2">
-          <Icon as={BookOpen} size={24} className="text-foreground" />
-          <Text className="text-xl font-bold">Kosakata Harian</Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        enabled={isDailyVocabInputFocused || dailyVocabInputFocusedRef.current}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 + insets.bottom : 20}
+      >
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="p-4 gap-6"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 60 + insets.bottom }}
+        >
+        {/* Header */}
+        <View className="flex-row justify-between items-center">
+          <HeaderTitle />
+          <ThemeToggle />
         </View>
-        <DailyVocabulary />
-      </View>
 
-      {/* Daily Soal Section */}
-      <View className="gap-4">
-        <View className="flex-row items-center gap-2">
-          <Icon as={ClipboardList} size={24} className="text-foreground" />
-          <Text className="text-xl font-bold">Latihan Harian</Text>
+        {/* Stats Section */}
+        <View className="flex-row gap-3">
+          <Card className="flex-1">
+            <CardContent className="p-4 items-center gap-2">
+              <Icon as={Flame} size={24} className="text-foreground" />
+              <View className="items-center">
+                <Text className="font-bold text-xl">{user?.currentStreak || 0}</Text>
+                <Text className="text-xs text-muted-foreground">Streak</Text>
+              </View>
+            </CardContent>
+          </Card>
+          <Card className="flex-1">
+            <CardContent className="p-4 items-center gap-2">
+              <Icon as={Trophy} size={24} className="text-foreground" />
+              <View className="items-center">
+                <Text className="font-bold text-xl">{user?.level || 1}</Text>
+                <Text className="text-xs text-muted-foreground">Level</Text>
+              </View>
+            </CardContent>
+          </Card>
+          <Card className="flex-1">
+            <CardContent className="p-4 items-center gap-2">
+              <Icon as={Zap} size={24} className="text-foreground" />
+              <View className="items-center">
+                <Text className="font-bold text-xl">{user?.xp || 0}</Text>
+                <Text className="text-xs text-muted-foreground">XP</Text>
+              </View>
+            </CardContent>
+          </Card>
         </View>
-        <DailySoal />
-      </View>
 
-      </ScrollView>
+
+        {/* Daily Vocabulary Section */}
+        <View className="gap-4">
+          <View className="flex-row items-center gap-2">
+            <Icon as={BookOpen} size={24} className="text-foreground" />
+            <Text className="text-xl font-bold">Kosakata Harian</Text>
+          </View>
+          <DailyVocabulary onInputFocusChange={handleDailyVocabInputFocusChange} />
+        </View>
+
+        {/* Daily Soal Section */}
+        <View className="gap-4">
+          <View className="flex-row items-center gap-2">
+            <Icon as={ClipboardList} size={24} className="text-foreground" />
+            <Text className="text-xl font-bold">Latihan Harian</Text>
+          </View>
+          <DailySoal />
+        </View>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

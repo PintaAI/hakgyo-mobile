@@ -10,7 +10,9 @@ import { useColorScheme } from 'nativewind';
 import React from 'react';
 import { initSDK, AuthProvider } from 'hakgyo-expo-sdk';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { UpdateChecker } from '@/components/update-checker';
+import { SessionChecker } from '@/components/session-checker';
 import * as SplashScreen from 'expo-splash-screen';
 
 // Initialize the SDK with dynamic configuration
@@ -29,14 +31,17 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-        <AuthProvider>
-          <UpdateChecker />
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-          <Stack screenOptions={{ headerShown: false }} />
-          <PortalHost />
-        </AuthProvider>
-      </ThemeProvider>
+      <BottomSheetModalProvider>
+        <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
+          <AuthProvider>
+            <UpdateChecker />
+            <SessionChecker />
+            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <Stack screenOptions={{ headerShown: false }} />
+            <PortalHost />
+          </AuthProvider>
+        </ThemeProvider>
+      </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
 }

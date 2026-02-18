@@ -38,7 +38,10 @@ export function AuthCard({ className }: AuthCardProps) {
 
     setLoginLoading(true);
     try {
-      await signInWithEmail(loginEmail, loginPassword);
+      const response = await signInWithEmail(loginEmail, loginPassword);
+      if (!response.success && response.error) {
+        setLoginError(response.error);
+      }
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : 'Login failed');
     } finally {
@@ -55,7 +58,10 @@ export function AuthCard({ className }: AuthCardProps) {
 
     setRegisterLoading(true);
     try {
-      await signUpWithEmail(registerEmail, registerPassword, registerName);
+      const response = await signUpWithEmail(registerEmail, registerPassword, registerName);
+      if (!response.success && response.error) {
+        setRegisterError(response.error);
+      }
     } catch (error) {
       setRegisterError(error instanceof Error ? error.message : 'Registration failed');
     } finally {
