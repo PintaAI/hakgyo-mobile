@@ -127,7 +127,7 @@ export function SoalSet({ set, onPress }: SoalSetProps) {
                 </View>
               )}
               <View className="flex-row items-center gap-1.5 ml-auto">
-                <Icon as={CheckCircle} size={14} className={isCompleted ? "text-green-500" : "text-muted-foreground"} />
+                <Icon as={CheckCircle} size={14} className={isCompleted ? "text-success" : "text-muted-foreground"} />
                 <Text className="text-xs text-muted-foreground">
                   {completedCount} selesai
                 </Text>
@@ -138,7 +138,7 @@ export function SoalSet({ set, onPress }: SoalSetProps) {
           {/* Progress Section */}
           {itemCount > 0 && (
             <View>
-              <Progress value={progress} className="h-1.5 bg-muted/60" indicatorClassName={isCompleted ? 'bg-green-500' : 'bg-primary'} />
+              <Progress value={progress} className="h-1.5 bg-muted/60" indicatorClassName={isCompleted ? 'bg-success' : 'bg-primary'} />
 
               {/* Progress Text */}
               <View className="flex-row justify-between items-center mt-2">
@@ -147,8 +147,8 @@ export function SoalSet({ set, onPress }: SoalSetProps) {
                 </Text>
                 {isCompleted ? (
                   <View className="flex-row items-center gap-1">
-                    <Icon as={CheckCircle} size={12} className="text-green-500" />
-                    <Text className="text-xs text-green-500 font-medium">Selesai</Text>
+                    <Icon as={CheckCircle} size={12} className="text-success" />
+                    <Text className="text-xs text-success font-medium">Selesai</Text>
                   </View>
                 ) : (
                   <View className="flex-row items-center gap-1">

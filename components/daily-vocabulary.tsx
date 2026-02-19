@@ -159,9 +159,9 @@ function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslat
           </Animated.View>
 
           <Animated.View style={backStyle}>
-            <Card className="w-full h-full items-center justify-center bg-green-50 dark:bg-emerald-900 border-green-200 dark:border-green-800 shadow-md elevation-5">
+            <Card className="w-full h-full items-center justify-center bg-success/10 dark:bg-success/20 border-success/30 dark:border-success/40 shadow-md elevation-5">
               <CardContent className="items-center justify-center p-6">
-                <Text className="text-3xl font-bold text-center text-green-700 dark:text-green-300 mb-2">
+                <Text className="text-3xl font-bold text-center text-success dark:text-success-foreground mb-2">
                   {item.indonesian}
                 </Text>
                 {item.exampleSentences?.[0] && (
@@ -169,9 +169,9 @@ function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslat
                     "{item.exampleSentences[0]}"
                   </Text>
                 )}
-                <View className="flex-row items-center mt-4 bg-green-100 dark:bg-green-800 px-3 py-1 rounded-full">
-                  <Icon as={Check} size={16} className="text-green-600 dark:text-green-300 mr-1" />
-                  <Text className="text-xs font-medium text-green-600 dark:text-green-300">Benar!</Text>
+                <View className="flex-row items-center mt-4 bg-success/20 dark:bg-success/30 px-3 py-1 rounded-full">
+                  <Icon as={Check} size={16} className="text-success dark:text-success-foreground mr-1" />
+                  <Text className="text-xs font-medium text-success dark:text-success-foreground">Benar!</Text>
                 </View>
               </CardContent>
             </Card>
@@ -226,9 +226,10 @@ function BackgroundCard({ item, activeTranslation }: BackgroundCardProps) {
 
 interface DailyVocabularyProps {
   onInputFocusChange?: (isFocused: boolean) => void;
+  onStatsUpdate?: (xpGained: number) => void;
 }
 
-export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
+export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVocabularyProps) {
   const [vocabList, setVocabList] = useState<VocabularyItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -300,6 +301,12 @@ export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
   }, [hasTried, refreshing, handleRefresh]);
 
   const markAsLearned = useCallback(async (vocabId: number, isLearned: boolean) => {
+    // Optimistically update stats BEFORE API call for immediate feedback
+    if (isLearned) {
+      // COMPLETE_VOCABULARY event awards 5 XP according to gamification docs
+      onStatsUpdate?.(5);
+    }
+    
     try {
       console.log('Marking vocabulary as learned:', { vocabId, isLearned });
       const response = await vocabularyApi.setLearnedStatus(vocabId, isLearned);
@@ -307,7 +314,7 @@ export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
     } catch (error) {
       console.error('Failed to mark vocabulary as learned:', error);
     }
-  }, []);
+  }, [onStatsUpdate]);
 
   const checkAnswer = useCallback(() => {
     const currentVocab = vocabList[currentIndex];

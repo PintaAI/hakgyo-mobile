@@ -1,16 +1,18 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Text } from '@/components/ui/text';
-import { BookOpen, ClipboardList, Flame, Trophy, Zap } from 'lucide-react-native';
+import { BookOpen, ClipboardList } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Image, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from 'hakgyo-expo-sdk';
-import { Card, CardContent, } from '@/components/ui/card';
-import { Icon } from '@/components/ui/icon';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DailyVocabulary } from '@/components/daily-vocabulary';
 import { DailySoal } from '@/components/daily-soal';
 import { useDailyLogin } from '@/hooks/use-daily-login';
+import { UserStats } from '@/components/user-stats';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Icon } from '@/components/ui/icon';
+import { GRADIENTS } from '@/lib/theme';
 
 const LOGO = {
   light: require('@/assets/images/splash-icon.png'),
@@ -34,11 +36,38 @@ function HeaderTitle() {
 export default function HomeScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const dailyVocabInputFocusedRef = useRef(false);
   const [isDailyVocabInputFocused, setIsDailyVocabInputFocused] = useState(false);
+  
+  // Optimistic stats state
+  const [optimisticXP, setOptimisticXP] = useState(0);
+  const [optimisticLevel, setOptimisticLevel] = useState(0);
+
 
   // Trigger daily login event when user opens the app
   useDailyLogin();
+
+  // Calculate level from XP: level = Math.floor(Math.sqrt(totalXP / 100)) + 1
+  const calculateLevel = (xp: number): number => Math.floor(Math.sqrt(xp / 100)) + 1;
+
+  // Handle optimistic stats update from DailyVocabulary
+  const handleStatsUpdate = useCallback((xpGained: number) => {
+    setOptimisticXP((prevXP) => {
+      const newXP = prevXP + xpGained;
+      setOptimisticLevel(calculateLevel(newXP));
+      return newXP;
+    });
+  }, []);
+
+  // Reset optimistic state when user data changes (e.g., after refresh)
+  useEffect(() => {
+    if (user) {
+      setOptimisticXP(user.xp || 0);
+      setOptimisticLevel(user.level || 1);
+    }
+  }, [user]);
 
   const handleDailyVocabInputFocusChange = useCallback((isFocused: boolean) => {
     dailyVocabInputFocusedRef.current = isFocused;
@@ -66,51 +95,48 @@ export default function HomeScreen() {
         </View>
 
         {/* Stats Section */}
-        <View className="flex-row gap-3">
-          <Card className="flex-1 bg-card shadow-md elevation-5">
-            <CardContent className="p-4 items-center gap-2">
-              <Icon as={Flame} size={24} className="text-foreground" />
-              <View className="items-center">
-                <Text className="font-bold text-xl">{user?.currentStreak || 0}</Text>
-                <Text className="text-xs text-muted-foreground">Streak</Text>
-              </View>
-            </CardContent>
-          </Card>
-          <Card className="flex-1 bg-card shadow-md elevation-5">
-            <CardContent className="p-4 items-center gap-2">
-              <Icon as={Trophy} size={24} className="text-foreground" />
-              <View className="items-center">
-                <Text className="font-bold text-xl">{user?.level || 1}</Text>
-                <Text className="text-xs text-muted-foreground">Level</Text>
-              </View>
-            </CardContent>
-          </Card>
-          <Card className="flex-1 bg-card shadow-md elevation-5">
-            <CardContent className="p-4 items-center gap-2">
-              <Icon as={Zap} size={24} className="text-foreground" />
-              <View className="items-center">
-                <Text className="font-bold text-xl">{user?.xp || 0}</Text>
-                <Text className="text-xs text-muted-foreground">XP</Text>
-              </View>
-            </CardContent>
-          </Card>
-        </View>
+        <UserStats
+          streak={user?.currentStreak || 0}
+          level={optimisticLevel || user?.level || 1}
+          xp={optimisticXP || user?.xp || 0}
+        />
 
 
         {/* Daily Vocabulary Section */}
         <View className="gap-4">
           <View className="flex-row items-center gap-2">
-            <Icon as={BookOpen} size={24} className="text-foreground" />
-            <Text className="text-xl font-bold">Kosakata Harian</Text>
+            <LinearGradient
+              colors={GRADIENTS[colorScheme ?? 'light'].vocabChip}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ borderRadius: 10 }}
+            >
+              <View className="p-2">
+                <Icon as={BookOpen} size={20} className="text-foreground" />
+              </View>
+            </LinearGradient>
+            <Text className="text-xl font-bold text-foreground">Kosakata Harian</Text>
           </View>
-          <DailyVocabulary onInputFocusChange={handleDailyVocabInputFocusChange} />
+          <DailyVocabulary
+            onInputFocusChange={handleDailyVocabInputFocusChange}
+            onStatsUpdate={handleStatsUpdate}
+          />
         </View>
 
         {/* Daily Soal Section */}
         <View className="gap-4">
           <View className="flex-row items-center gap-2">
-            <Icon as={ClipboardList} size={24} className="text-foreground" />
-            <Text className="text-xl font-bold">Latihan Harian</Text>
+            <LinearGradient
+              colors={GRADIENTS[colorScheme ?? 'light'].soalChip}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ borderRadius: 10 }}
+            >
+              <View className="p-2">
+                <Icon as={ClipboardList} size={20} className="text-foreground" />
+              </View>
+            </LinearGradient>
+            <Text className="text-xl font-bold text-foreground">Latihan Harian</Text>
           </View>
           <DailySoal />
         </View>
