@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -13,16 +13,16 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { vocabularyApi, useAuth } from 'hakgyo-expo-sdk';
+import { vocabularyApi, useAuth, VocabularyItem } from 'hakgyo-expo-sdk';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { ArrowRight, Check, HelpCircle } from 'lucide-react-native';
-import { MOCK_DATA, VocabularyItem } from '@/data/mock-vocabulary';
+import { ArrowRight, Check, HelpCircle, RefreshCw, Send } from 'lucide-react-native';
 
 const SCREEN_WIDTH = 300;
 const SWIPE_THRESHOLD = 100;
@@ -146,7 +146,7 @@ function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslat
       <Animated.View style={[styles.card, cardStyle]}>
         <View className="relative w-full h-full">
           <Animated.View style={frontStyle}>
-            <Card className="w-full h-full bg-card border-primary/20 relative">
+            <Card className="w-full h-full bg-card border-primary/20 relative shadow-md elevation-5">
               <View className="absolute top-3 left-3 z-10">
                 <Badge variant="secondary">
                   <Text>{formatPos(item.pos) || item.type}</Text>
@@ -159,7 +159,7 @@ function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslat
           </Animated.View>
 
           <Animated.View style={backStyle}>
-            <Card className="w-full h-full items-center justify-center bg-green-50 dark:bg-emerald-900 border-green-200 dark:border-green-800">
+            <Card className="w-full h-full items-center justify-center bg-green-50 dark:bg-emerald-900 border-green-200 dark:border-green-800 shadow-md elevation-5">
               <CardContent className="items-center justify-center p-6">
                 <Text className="text-3xl font-bold text-center text-green-700 dark:text-green-300 mb-2">
                   {item.indonesian}
@@ -210,7 +210,7 @@ function BackgroundCard({ item, activeTranslation }: BackgroundCardProps) {
 
   return (
     <Animated.View style={[styles.card, styles.cardInactive, cardStyle]}>
-      <Card className="w-full h-full bg-card border-primary/20 relative">
+      <Card className="w-full h-full bg-card border-primary/20 relative shadow-md elevation-5">
         <View className="absolute top-3 left-3 z-10">
           <Badge variant="secondary">
             <Text>{formatPos(item.pos) || item.type}</Text>
@@ -232,26 +232,33 @@ export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
   const [vocabList, setVocabList] = useState<VocabularyItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [input, setInput] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [errorTrigger, setErrorTrigger] = useState(0);
   const [activeTranslation, setActiveTranslation] = useState(0);
+  const [incorrectAttempts, setIncorrectAttempts] = useState<Record<number, number>>({});
+  const [processedItems, setProcessedItems] = useState<Set<number>>(new Set());
+  const [hasTried, setHasTried] = useState(false);
 
   const { user } = useAuth();
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const response = await vocabularyApi.getDaily({ userId: user?.id || '', take: 10 });
-        setVocabList(response.success && response.data?.length ? response.data : MOCK_DATA);
-      } catch {
-        setVocabList(MOCK_DATA);
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const fetchDailyVocab = useCallback(async () => {
+    try {
+      const response = await vocabularyApi.getDaily({ userId: user?.id || '', take: 10 });
+      setVocabList(response.success && response.data?.length ? response.data : []);
+    } catch {
+      setVocabList([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [user?.id]);
+
+  useEffect(() => {
+    fetchDailyVocab();
+  }, [fetchDailyVocab]);
 
   useEffect(() => {
     return () => {
@@ -268,17 +275,86 @@ export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
     setCurrentIndex((prev) => (prev >= vocabList.length - 1 ? 0 : prev + 1));
   }, [vocabList.length]);
 
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    setCurrentIndex(0);
+    setInput('');
+    setIsCorrect(false);
+    setShowHint(false);
+    setErrorTrigger(0);
+    setActiveTranslation(0);
+    setHasTried(false);
+    setIncorrectAttempts({});
+    setProcessedItems(new Set());
+    fetchDailyVocab();
+  }, [fetchDailyVocab]);
+
+  // Auto-refresh when all items are completed
+  useEffect(() => {
+    if (hasTried && !refreshing) {
+      const timer = setTimeout(() => {
+        handleRefresh();
+      }, 1500); // Wait 1.5 seconds before refreshing
+      return () => clearTimeout(timer);
+    }
+  }, [hasTried, refreshing, handleRefresh]);
+
+  const markAsLearned = useCallback(async (vocabId: number, isLearned: boolean) => {
+    try {
+      console.log('Marking vocabulary as learned:', { vocabId, isLearned });
+      const response = await vocabularyApi.setLearnedStatus(vocabId, isLearned);
+      console.log('Mark as learned response:', response);
+    } catch (error) {
+      console.error('Failed to mark vocabulary as learned:', error);
+    }
+  }, []);
+
   const checkAnswer = useCallback(() => {
     const currentVocab = vocabList[currentIndex];
     if (!currentVocab) return;
 
-    if (input.trim().toLowerCase() === currentVocab.indonesian.toLowerCase()) {
+    const vocabId = currentVocab.id;
+    const isAnswerCorrect = input.trim().toLowerCase() === currentVocab.indonesian.toLowerCase();
+
+    if (isAnswerCorrect) {
       setIsCorrect(true);
+      // Mark as learned when answer is correct
+      markAsLearned(vocabId, true);
+      // Reset incorrect attempts for this item
+      setIncorrectAttempts((prev) => ({ ...prev, [vocabId]: 0 }));
+      setProcessedItems((prev) => {
+        const newSet = new Set(prev).add(vocabId);
+        // Show refresh button when all items have been processed
+        if (newSet.size === vocabList.length) {
+          setHasTried(true);
+        }
+        return newSet;
+      });
     } else {
       setErrorTrigger((prev) => prev + 1);
       setInput('');
+      
+      // Track incorrect attempts
+      setIncorrectAttempts((prev) => {
+        const newAttempts = { ...prev, [vocabId]: (prev[vocabId] || 0) + 1 };
+        
+        // If 2 incorrect attempts, mark as not learned
+        if (newAttempts[vocabId] >= 2 && !processedItems.has(vocabId)) {
+          markAsLearned(vocabId, false);
+          setProcessedItems((prev) => {
+            const newSet = new Set(prev).add(vocabId);
+            // Show refresh button when all items have been processed
+            if (newSet.size === vocabList.length) {
+              setHasTried(true);
+            }
+            return newSet;
+          });
+        }
+        
+        return newAttempts;
+      });
     }
-  }, [currentIndex, input, vocabList]);
+  }, [currentIndex, input, vocabList, markAsLearned, processedItems]);
 
   const handleTranslationChange = useCallback((value: number) => {
     setActiveTranslation(value);
@@ -289,17 +365,33 @@ export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
 
   if (loading) {
     return (
-      <View className="p-4 items-center justify-center">
-        <ActivityIndicator size="large" />
-        <Text className="mt-2 text-muted-foreground">Memuat kosakata...</Text>
+      <View className="w-full max-w-md mx-auto gap-6">
+        <View style={styles.cardStack}>
+          <Skeleton className="w-full h-full rounded-xl" />
+        </View>
+        <View className="gap-4">
+          <View className="flex-row gap-2">
+            <Skeleton className="w-10 h-10 rounded-md" />
+            <Skeleton className="flex-1 h-10 rounded-md" />
+            <Skeleton className="w-10 h-10 rounded-md" />
+          </View>
+        </View>
       </View>
     );
   }
 
   if (!vocabList.length) {
     return (
-      <View className="p-4 items-center justify-center">
+      <View className="p-4 items-center justify-center gap-4">
         <Text>Data tidak ditemukan.</Text>
+        <Button variant="outline" onPress={handleRefresh} disabled={refreshing}>
+          {refreshing ? (
+            <Skeleton className="w-4 h-4 rounded-full" />
+          ) : (
+            <Icon as={RefreshCw} size={16} />
+          )}
+          <Text className="ml-2">Refresh</Text>
+        </Button>
       </View>
     );
   }
@@ -307,6 +399,22 @@ export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
   return (
     <View className="w-full max-w-md mx-auto gap-6">
       <View style={styles.cardStack}>
+        {/* Word count indicator - top right corner */}
+        <View style={styles.wordCountBadge}>
+          <Text className="text-sm font-medium text-muted-foreground">
+            {processedItems.size}/{vocabList.length}
+          </Text>
+        </View>
+
+        {/* Hint text - bottom center of card */}
+        {showHint && currentVocab && (
+          <View style={styles.hintText}>
+            <Text className="text-xs text-muted-foreground text-center">
+              Petunjuk: Dimulai dengan "{currentVocab.indonesian[0]}..." ({currentVocab.indonesian.length} huruf)
+            </Text>
+          </View>
+        )}
+
         {/* Background card (next card) - rendered first so it's behind */}
         {nextVocab && (
           <BackgroundCard
@@ -314,6 +422,13 @@ export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
             item={nextVocab}
             activeTranslation={activeTranslation}
           />
+        )}
+
+        {/* Skeleton overlay when refreshing */}
+        {refreshing && (
+          <View style={styles.refreshingOverlay}>
+            <Skeleton className="w-full h-full rounded-xl" />
+          </View>
         )}
 
         {/* Active card - rendered second so it's on top */}
@@ -337,9 +452,12 @@ export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
           </Button>
         ) : (
           <>
-            <View className="gap-2">
+            <View className="flex-row gap-2">
+              <Button variant="outline" size="icon" onPress={() => setShowHint(true)}>
+                <Icon as={HelpCircle} size={20} className="text-foreground" />
+              </Button>
               <Input
-                className="text-center"
+                className="flex-1 text-center"
                 placeholder="ketik di sini..."
                 value={input}
                 onChangeText={setInput}
@@ -349,23 +467,13 @@ export function DailyVocabulary({ onInputFocusChange }: DailyVocabularyProps) {
                 onFocus={() => onInputFocusChange?.(true)}
                 onBlur={() => onInputFocusChange?.(false)}
               />
-              {showHint && currentVocab && (
-                <Text className="text-xs text-muted-foreground ml-1">
-                  Petunjuk: Dimulai dengan "{currentVocab.indonesian[0]}..." ({currentVocab.indonesian.length} huruf)
-                </Text>
-              )}
-            </View>
-
-            <View className="flex-row gap-2">
-              <Button className="flex-1" onPress={checkAnswer}>
-                <Text>Cek Jawaban</Text>
-              </Button>
-              <Button variant="outline" size="icon" onPress={() => setShowHint(true)}>
-                <Icon as={HelpCircle} size={20} className="text-foreground" />
+              <Button variant="outline" size="icon" onPress={checkAnswer}>
+                <Icon as={Send} size={20} className="text-foreground" />
               </Button>
             </View>
           </>
         )}
+
       </View>
     </View>
   );
@@ -385,5 +493,31 @@ const styles = StyleSheet.create({
     height: 200,
     width: '100%',
     position: 'relative',
+  },
+  wordCountBadge: {
+    position: 'absolute',
+    top: -35,
+    right: 8,
+    zIndex: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  hintText: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    zIndex: 25,
+    alignItems: 'center',
+  },
+  refreshingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
   },
 });

@@ -1,20 +1,24 @@
-import React, { useEffect, useRef } from 'react';
-import { View, ScrollView, Pressable, Animated, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ScrollView, Pressable, Dimensions, Modal, StyleSheet } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
-import { X } from 'lucide-react-native';
+import { Skeleton } from '@/components/ui/skeleton';
 import { VocabItem } from './vocab-item';
-import { MOCK_DATA } from '@/data/mock-vocabulary';
-import { MOCK_VOCAB_SETS } from '@/data/mock-vocab-sets';
-import { VocabularyItem } from '@/data/mock-vocabulary';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { vocabularyApi } from 'hakgyo-expo-sdk';
+import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
+import { useColorScheme } from 'nativewind';
+import { NAV_THEME } from '@/lib/theme';
+import type { VocabularySet } from 'hakgyo-expo-sdk';
+import type { VocabularyItem } from 'hakgyo-expo-sdk';
 
 interface VocabItemsDrawerProps {
   setId: number;
   isOpen?: boolean;
   onClose?: () => void;
   onItemPress?: (item: VocabularyItem) => void;
+  set?: VocabularySet;
+  children?: React.ReactNode;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -24,26 +28,91 @@ export function VocabItemsDrawer({
   isOpen = true,
   onClose,
   onItemPress,
+  set: setProp,
+  children,
 }: VocabItemsDrawerProps) {
   const insets = useSafeAreaInsets();
-  const set = MOCK_VOCAB_SETS.find((s) => s.id === setId);
-  const slideAnim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const { colorScheme } = useColorScheme();
+  const [items, setItems] = useState<VocabularyItem[]>([]);
+  const [learnedItemIds, setLearnedItemIds] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const translateX = useSharedValue(SCREEN_WIDTH);
+  const context = useSharedValue({ x: 0 });
 
   useEffect(() => {
     if (isOpen) {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      translateX.value = withTiming(0, { duration: 300 });
     } else {
-      Animated.timing(slideAnim, {
-        toValue: SCREEN_WIDTH,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
+      translateX.value = withTiming(SCREEN_WIDTH, { duration: 250 });
     }
-  }, [isOpen, slideAnim]);
+  }, [isOpen]);
+
+  const gesture = Gesture.Pan()
+    .activeOffsetX([-20, 20]) // Only activate if moved 20px horizontally
+    .failOffsetY([-20, 20])   // Fail if moved 20px vertically
+    .onStart(() => {
+      context.value = { x: translateX.value };
+    })
+    .onUpdate((event) => {
+      const newValue = context.value.x + event.translationX;
+      // Clamp to not pull left past 0
+      translateX.value = Math.max(0, newValue);
+    })
+    .onEnd((event) => {
+      if (translateX.value > SCREEN_WIDTH * 0.25 || event.velocityX > 500) {
+        // Animate out then close
+        translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, (finished) => {
+          if (finished && onClose) {
+            runOnJS(onClose)();
+          }
+        });
+      } else {
+        // Snap back
+        translateX.value = withTiming(0, { duration: 200 });
+      }
+    });
+
+  const rStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
+
+  useEffect(() => {
+    if (isOpen && setId) {
+      fetchVocabItems();
+    }
+  }, [isOpen, setId]);
+
+  const fetchVocabItems = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch all items and learned items in parallel
+      const [itemsResponse, learnedResponse] = await Promise.all([
+        vocabularyApi.listItems({ collectionId: setId.toString() }),
+        vocabularyApi.listItems({ collectionId: setId.toString(), isLearned: true }),
+      ]);
+
+      if (itemsResponse.success && itemsResponse.data?.data) {
+        setItems(itemsResponse.data.data);
+      } else {
+        setError(itemsResponse.error || 'Failed to load vocabulary items');
+      }
+
+      if (learnedResponse.success && learnedResponse.data?.data) {
+        const learnedIds = new Set(learnedResponse.data.data.map(item => item.id));
+        setLearnedItemIds(learnedIds);
+      }
+    } catch (e) {
+      setError('Network error. Please check your connection.');
+      console.error('Error fetching vocab items:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleItemPress = (item: VocabularyItem) => {
     onItemPress?.(item);
@@ -51,68 +120,120 @@ export function VocabItemsDrawer({
 
   const drawerWidth = Math.min(SCREEN_WIDTH * 0.85, 400);
 
+  const handleCloseWithAnimation = () => {
+    translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, (finished) => {
+      if (finished && onClose) {
+        runOnJS(onClose)();
+      }
+    });
+  };
+
   return (
-    <View className="absolute inset-0 z-50">
-      {/* Backdrop */}
-      {isOpen && (
-        <Pressable
-          onPress={onClose}
-          className="absolute inset-0 bg-black/50"
-        />
-      )}
+    <Modal
+      visible={isOpen}
+      transparent
+      animationType="none"
+      onRequestClose={handleCloseWithAnimation}
+      statusBarTranslucent
+    >
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View className="flex-1 z-50">
+          {/* Backdrop */}
+          <Pressable
+            onPress={handleCloseWithAnimation}
+            className="absolute inset-0 bg-black/50"
+          />
 
-      {/* Drawer Content */}
-      <Animated.View
-        style={{
-          transform: [{ translateX: slideAnim }],
-          width: drawerWidth,
-          position: 'absolute',
-          right: 0,
-          top: 0,
-          bottom: 0,
-          shadowColor: '#000',
-          shadowOffset: { width: -2, height: 0 },
-          shadowOpacity: 0.25,
-          shadowRadius: 8,
-          elevation: 5,
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-        }}
-        className="bg-background border-l border-border"
-      >
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-5 py-4 border-b border-border">
-          <View>
-            <Text className="text-xl font-semibold">{set?.title || 'Vocab Items'}</Text>
-            <Text className="text-xs text-muted-foreground mt-0.5">
-              {set ? `${set.learnedCount}/${set.itemCount} learned` : '0 items'}
-            </Text>
-          </View>
-          <Button variant="ghost" size="icon" onPress={onClose} className="-mr-2">
-            <Icon as={X} size={24} className="text-foreground" />
-          </Button>
+        {/* Drawer Content */}
+        <GestureDetector gesture={gesture}>
+          <Animated.View
+            style={[{
+              width: drawerWidth,
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              bottom: 0,
+              shadowColor: '#000',
+              shadowOffset: { width: -2, height: 0 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 5,
+              paddingTop: insets.top,
+              backgroundColor: NAV_THEME[colorScheme ?? 'light'].colors.background,
+            }, rStyle]}
+            className="border-l border-border"
+          >
+            {/* Header & Description */}
+            <View style={styles.header} className="px-4 py-3 bg-background flex-row items-center justify-between gap-4">
+              <View className="flex-1">
+                <Text className="text-lg font-bold tracking-tight" numberOfLines={1}>
+                  {setProp?.title || 'Vocab Items'}
+                </Text>
+                {setProp?.description && (
+                  <Text className="text-xs text-muted-foreground leading-snug mt-1" numberOfLines={1}>
+                    {setProp.description}
+                  </Text>
+                )}
+              </View>
+              <View className="bg-muted rounded-full p-1 items-center justify-center">
+                <Text className="text-xs text-muted-foreground font-medium">
+                  {items.length}
+                </Text>
+              </View>
+            </View>
+            {/* Content */}
+            <ScrollView className="flex-1 px-3" >
+              {loading ? (
+                <View className="mt-2 gap-2">
+                  {[...Array(5)].map((_, i) => (
+                    <View key={i} className="border-b border-border/35 px-2 py-2.5 flex-row items-center gap-2">
+                      <Skeleton className="h-6 w-6 rounded-md" />
+                      <View className="flex-1 min-w-0 gap-1.5">
+                        <Skeleton className="h-4 w-3/4 rounded-md" />
+                        <Skeleton className="h-3 w-1/2 rounded-md" />
+                      </View>
+                      <Skeleton className="h-7 w-7 rounded-full" />
+                    </View>
+                  ))}
+                </View>
+              ) : error ? (
+                <View className="py-10 items-center">
+                  <Text className="text-destructive text-sm">{error}</Text>
+                </View>
+              ) : items.length === 0 ? (
+                <View className="py-10 items-center">
+                  <Text className="text-muted-foreground">No vocabulary items available</Text>
+                </View>
+              ) : (
+                <View className="mt-2 gap-2">
+                  {items.map((item) => (
+                    <VocabItem
+                      key={item.id}
+                      item={item}
+                      compact
+                      isLearned={learnedItemIds.has(item.id)}
+                      onPress={() => handleItemPress(item)}
+                    />
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          </Animated.View>
+        </GestureDetector>
+          {children}
         </View>
-
-        {/* Set Description */}
-        {set && (
-          <View className="px-5 py-3 border-b border-border">
-            <Text className="text-sm text-muted-foreground">{set.description}</Text>
-          </View>
-        )}
-
-        {/* Content */}
-        <ScrollView className="flex-1 px-4 py-2">
-          <View className="gap-3">
-            {MOCK_DATA.map((item) => (
-              <VocabItem
-                key={item.id}
-                item={item}
-                onPress={() => handleItemPress(item)}
-              />
-            ))}
-          </View>
-        </ScrollView>
-      </Animated.View>
-    </View>
+      </GestureHandlerRootView>
+    </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
+    elevation: 6,
+    zIndex: 10,
+  },
+});

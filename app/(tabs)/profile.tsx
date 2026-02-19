@@ -3,6 +3,7 @@ import { View, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SignoutButton } from '@/components/auth/signout-button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   User,
   Mail,
@@ -46,9 +47,11 @@ export default function ProfileScreen() {
       <ScrollView className="flex-1" contentContainerClassName="p-6 gap-6">
         {/* Profile Header */}
         <View className="items-center gap-4 pt-4">
-          <View className="h-24 w-24 rounded-full bg-primary/10 items-center justify-center border-4 border-primary/20">
-            <Icon as={User} size={48} className="text-primary" />
-          </View>
+          <Avatar alt="User avatar" className="h-24 w-24 border-4 border-primary/20 bg-primary/10">
+            <AvatarFallback>
+              <Icon as={User} size={48} className="text-primary" />
+            </AvatarFallback>
+          </Avatar>
           <View className="items-center gap-1">
             <Text className="text-2xl font-bold text-foreground">
               {user?.email?.split('@')[0] || 'User'}

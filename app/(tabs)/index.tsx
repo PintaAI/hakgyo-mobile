@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/icon';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DailyVocabulary } from '@/components/daily-vocabulary';
 import { DailySoal } from '@/components/daily-soal';
+import { useDailyLogin } from '@/hooks/use-daily-login';
 
 const LOGO = {
   light: require('@/assets/images/splash-icon.png'),
@@ -35,6 +36,9 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const dailyVocabInputFocusedRef = useRef(false);
   const [isDailyVocabInputFocused, setIsDailyVocabInputFocused] = useState(false);
+
+  // Trigger daily login event when user opens the app
+  useDailyLogin();
 
   const handleDailyVocabInputFocusChange = useCallback((isFocused: boolean) => {
     dailyVocabInputFocusedRef.current = isFocused;
@@ -63,7 +67,7 @@ export default function HomeScreen() {
 
         {/* Stats Section */}
         <View className="flex-row gap-3">
-          <Card className="flex-1">
+          <Card className="flex-1 bg-card shadow-md elevation-5">
             <CardContent className="p-4 items-center gap-2">
               <Icon as={Flame} size={24} className="text-foreground" />
               <View className="items-center">
@@ -72,7 +76,7 @@ export default function HomeScreen() {
               </View>
             </CardContent>
           </Card>
-          <Card className="flex-1">
+          <Card className="flex-1 bg-card shadow-md elevation-5">
             <CardContent className="p-4 items-center gap-2">
               <Icon as={Trophy} size={24} className="text-foreground" />
               <View className="items-center">
@@ -81,7 +85,7 @@ export default function HomeScreen() {
               </View>
             </CardContent>
           </Card>
-          <Card className="flex-1">
+          <Card className="flex-1 bg-card shadow-md elevation-5">
             <CardContent className="p-4 items-center gap-2">
               <Icon as={Zap} size={24} className="text-foreground" />
               <View className="items-center">

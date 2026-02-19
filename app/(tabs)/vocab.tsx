@@ -1,16 +1,58 @@
-import React, { useState, useCallback } from 'react';
-import { View, ScrollView } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { VocabSet } from '@/components/vocab';
-import { MOCK_VOCAB_SETS } from '@/data/mock-vocab-sets';
-import { VocabularyItem } from '@/data/mock-vocabulary';
 import { VocabItemsDrawer } from '@/components/vocab';
 import { VocabItemBottomSheet } from '@/components/vocab';
+import { Alert } from '@/components/ui/alert';
+import { vocabularyApi } from 'hakgyo-expo-sdk';
+import { AlertCircle } from 'lucide-react-native';
+import type { VocabularySet } from 'hakgyo-expo-sdk';
+import type { VocabularyItem } from 'hakgyo-expo-sdk';
 
 export default function VocabScreen() {
   const [selectedSetId, setSelectedSetId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<VocabularyItem | null>(null);
+  const [vocabSets, setVocabSets] = useState<VocabularySet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchVocabSets();
+  }, []);
+
+  const fetchVocabSets = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      const response = await vocabularyApi.listSets({ page: 1, limit: 20 });
+      console.log('Vocab sets response:', response);
+      if (response.success && response.data?.data) {
+        // response.data is PaginatedResponse<VocabularySet>, response.data.data is VocabularySet[]
+        console.log('Vocab sets data:', response.data.data);
+        setVocabSets(response.data.data);
+      } else {
+        setError(response.error || 'Failed to load vocabulary sets');
+      }
+    } catch (e) {
+      setError('Network error. Please check your connection.');
+      console.error('Error fetching vocab sets:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = useCallback(() => {
+    fetchVocabSets(true);
+  }, []);
 
   const handleSetPress = useCallback((setId: number) => {
     setSelectedSetId(setId);
@@ -18,7 +60,7 @@ export default function VocabScreen() {
 
   const handleItemPress = useCallback((item: VocabularyItem) => {
     setSelectedItem(item);
-    setSelectedSetId(null); // Close drawer when item is pressed
+     // Close drawer when item is pressed
   }, []);
 
   const handleCloseDrawer = useCallback(() => {
@@ -35,35 +77,80 @@ export default function VocabScreen() {
     }
   }, [selectedItem]);
 
-  const handleShare = useCallback(() => {
-    if (selectedItem) {
-      console.log('Share item:', selectedItem.korean);
-    }
-  }, [selectedItem]);
-
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <View className="flex-1">
         {/* Header */}
         <View className="px-5 pt-4 pb-2">
-          <Text className="text-xl font-semibold">Kosakata</Text>
-          <Text className="text-xs text-muted-foreground mt-0.5">
-            {MOCK_VOCAB_SETS.length} set tersedia
+          <Text className="text-xl font-bold">Kosa-kata</Text>
+          <Text className="text-xs  text-muted-foreground mt-0.5">
+            {vocabSets.length} set tersedia
           </Text>
         </View>
 
-        {/* Content - Vocab Sets List */}
-        <ScrollView className="flex-1 px-4 py-2">
-          <View className="gap-3">
-            {MOCK_VOCAB_SETS.map((set) => (
-              <VocabSet
-                key={set.id}
-                set={set}
-                onPress={() => handleSetPress(set.id)}
-              />
+        {/* Error Alert */}
+        {error && (
+          <View className="px-4 py-2">
+            <Alert variant="destructive" icon={AlertCircle}>
+              <Text className="text-sm">{error}</Text>
+            </Alert>
+          </View>
+        )}
+
+        {/* Loading State */}
+        {loading || refreshing ? (
+          <View className="p-4 gap-3">
+            {[...Array(3)].map((_, i) => (
+              <View key={i} className="border border-border/50 rounded-lg p-4 gap-3">
+                {/* Icon & Title Row */}
+                <View className="flex-row items-center gap-3">
+                  <Skeleton className="w-12 h-12 rounded-md" />
+                  <View className="flex-1 gap-1">
+                    <Skeleton className="h-4 w-3/4 rounded-md" />
+                    <Skeleton className="h-3 w-1/2 rounded-md" />
+                  </View>
+                  <Skeleton className="w-5 h-5 rounded-md" />
+                </View>
+                {/* Stats Row */}
+                <View className="flex-row items-center gap-4">
+                  <Skeleton className="w-16 h-3 rounded-md" />
+                  <Skeleton className="w-20 h-3 rounded-md" />
+                  <Skeleton className="w-16 h-3 rounded-md ml-auto" />
+                </View>
+                {/* Progress Bar */}
+                <Skeleton className="h-1.5 w-full rounded-full" />
+                {/* Progress Text */}
+                <View className="flex-row justify-between">
+                  <Skeleton className="w-12 h-3 rounded-md" />
+                  <Skeleton className="w-16 h-3 rounded-md" />
+                </View>
+              </View>
             ))}
           </View>
-        </ScrollView>
+        ) : (
+          /* Content - Vocab Sets List */
+          <ScrollView
+            className="flex-1"
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
+            <View className="p-4 gap-3">
+              {vocabSets.map((set) => (
+                <VocabSet
+                  key={set.id}
+                  set={set}
+                  onPress={() => handleSetPress(set.id)}
+                />
+              ))}
+              {vocabSets.length === 0 && !error && (
+                <View className="py-10 items-center">
+                  <Text className="text-muted-foreground">No vocabulary sets available</Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        )}
       </View>
 
       {/* Vocab Items Drawer */}
@@ -74,18 +161,30 @@ export default function VocabScreen() {
           isOpen={!!selectedSetId}
           onClose={handleCloseDrawer}
           onItemPress={handleItemPress}
-        />
-      )}
-
-      {/* Vocab Item Detail Bottom Sheet */}
-      {selectedItem && (
-        <VocabItemBottomSheet
-          key={`bottom-sheet-${selectedItem.id}`}
-          item={selectedItem}
-          onClose={handleCloseBottomSheet}
-          onAudioPress={handleAudioPress}
-          onShare={handleShare}
-        />
+          set={vocabSets.find((s) => s.id === selectedSetId)}
+        >
+          {/* Vocab Item Detail Bottom Sheet - Rendered inside the Modal if needed, but since BottomSheet needs gesture handling,
+              it might be tricky inside a Modal. However, the requirement is to show it ON TOP.
+              Since VocabItemsDrawer is now a Modal, anything outside it is covered.
+              So we should pass the BottomSheet as a child or render it inside the Drawer.
+              But BottomSheet is usually a global overlay.
+              
+              Better approach:
+              Pass the BottomSheet as children to VocabItemsDrawer? No, Drawer is a specific component.
+              
+              Actually, if VocabItemsDrawer is a Modal, we can't easily put another view on top of it unless it's another Modal.
+              @gorhom/bottom-sheet uses React Native Gesture Handler and Reanimated.
+              Using it inside a Modal is possible.
+          */}
+          {selectedItem && (
+            <VocabItemBottomSheet
+              key={`bottom-sheet-${selectedItem.id}`}
+              item={selectedItem}
+              onClose={handleCloseBottomSheet}
+              onAudioPress={handleAudioPress}
+            />
+          )}
+        </VocabItemsDrawer>
       )}
     </SafeAreaView>
   );

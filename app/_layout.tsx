@@ -2,6 +2,10 @@ import '@/global.css';
 
 import { NAV_THEME } from '@/lib/theme';
 import { sdkConfig } from '@/lib/config';
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+} from 'react-native-reanimated';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { Stack } from 'expo-router';
@@ -14,6 +18,12 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { UpdateChecker } from '@/components/update-checker';
 import { SessionChecker } from '@/components/session-checker';
 import * as SplashScreen from 'expo-splash-screen';
+
+// This is the default configuration
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false, // Reanimated runs in strict mode by default
+});
 
 // Initialize the SDK with dynamic configuration
 initSDK(sdkConfig);

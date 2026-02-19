@@ -6,16 +6,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { IconRenderer } from '@/components/ui/icon-renderer';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, CheckCircle, TrendingUp, User, ChevronRight } from 'lucide-react-native';
+import { FileText, CheckCircle, TrendingUp, User, ChevronRight, Calendar } from 'lucide-react-native';
 import { THEME } from '@/lib/theme';
 import { useColorScheme } from 'nativewind';
 
-export interface VocabularySet {
+export interface SoalSet {
   id: number;
-  title: string;
-  description?: string;
+  nama: string;
+  deskripsi?: string;
   icon?: string;
-  isPublic: boolean;
+  isPrivate: boolean;
   isDraft: boolean;
   userId?: string;
   user?: {
@@ -24,25 +24,37 @@ export interface VocabularySet {
     email: string;
     image?: string | null;
   };
-  kelasId?: number;
-  itemCount?: number;
-  learnedCount?: number;
+  soals?: unknown[];
+  kelasKoleksiSoals?: unknown[];
+  _count?: {
+    soals: number;
+  };
+  completedCount?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-interface VocabSetProps {
-  set: VocabularySet;
+interface SoalSetProps {
+  set: SoalSet;
   onPress?: () => void;
 }
 
-export function VocabSet({ set, onPress }: VocabSetProps) {
+export function SoalSet({ set, onPress }: SoalSetProps) {
   const { colorScheme } = useColorScheme();
-  const itemCount = set.itemCount ?? 0;
-  const learnedCount = set.learnedCount ?? 0;
-  const progress = itemCount > 0 ? (learnedCount / itemCount) * 100 : 0;
+  const itemCount = set._count?.soals ?? 0;
+  const completedCount = set.completedCount ?? 0;
+  const progress = itemCount > 0 ? (completedCount / itemCount) * 100 : 0;
   const isCompleted = progress === 100;
   const theme = THEME[colorScheme ?? 'light'];
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   return (
     <Pressable onPress={onPress} className="active:opacity-80">
@@ -70,7 +82,7 @@ export function VocabSet({ set, onPress }: VocabSetProps) {
                   end={{ x: 1, y: 1 }}
                   className="w-full h-full items-center justify-center"
                 >
-                  <Icon as={BookOpen} size={22} className="text-muted-foreground" />
+                  <Icon as={FileText} size={22} className="text-muted-foreground" />
                 </LinearGradient>
               </View>
             )}
@@ -78,11 +90,11 @@ export function VocabSet({ set, onPress }: VocabSetProps) {
             {/* Title & Description */}
             <View className="flex-1 gap-0.5">
               <Text className="text-base font-semibold text-foreground leading-tight" numberOfLines={1}>
-                {set.title}
+                {set.nama}
               </Text>
-              {set.description && (
+              {set.deskripsi && (
                 <Text className="text-sm text-muted-foreground leading-tight" numberOfLines={1} ellipsizeMode="tail">
-                  {set.description}
+                  {set.deskripsi}
                 </Text>
               )}
             </View>
@@ -95,9 +107,15 @@ export function VocabSet({ set, onPress }: VocabSetProps) {
           {itemCount > 0 && (
             <View className="flex-row items-center gap-4 pb-2">
               <View className="flex-row items-center gap-1.5">
-                <Icon as={BookOpen} size={14} className="text-muted-foreground" />
+                <Icon as={FileText} size={14} className="text-muted-foreground" />
                 <Text className="text-xs text-muted-foreground">
-                  {itemCount} {itemCount === 1 ? 'kata' : 'kata'}
+                  {itemCount} {itemCount === 1 ? 'soal' : 'soal'}
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <Icon as={Calendar} size={14} className="text-muted-foreground" />
+                <Text className="text-xs text-muted-foreground">
+                  {formatDate(set.createdAt)}
                 </Text>
               </View>
               {set.user && (
@@ -111,7 +129,7 @@ export function VocabSet({ set, onPress }: VocabSetProps) {
               <View className="flex-row items-center gap-1.5 ml-auto">
                 <Icon as={CheckCircle} size={14} className={isCompleted ? "text-green-500" : "text-muted-foreground"} />
                 <Text className="text-xs text-muted-foreground">
-                  {learnedCount} dipelajari
+                  {completedCount} selesai
                 </Text>
               </View>
             </View>
@@ -136,7 +154,7 @@ export function VocabSet({ set, onPress }: VocabSetProps) {
                   <View className="flex-row items-center gap-1">
                     <Icon as={TrendingUp} size={12} className="text-primary" />
                     <Text className="text-xs text-primary font-medium">
-                      {itemCount - learnedCount} tersisa
+                      {itemCount - completedCount} tersisa
                     </Text>
                   </View>
                 )}
@@ -147,7 +165,7 @@ export function VocabSet({ set, onPress }: VocabSetProps) {
           {/* Empty State */}
           {itemCount === 0 && (
             <View className="pb-4 pt-1">
-              <Text className="text-xs text-muted-foreground">Buka untuk melihat kosakata</Text>
+              <Text className="text-xs text-muted-foreground">Buka untuk melihat soal</Text>
             </View>
           )}
         </CardContent>
