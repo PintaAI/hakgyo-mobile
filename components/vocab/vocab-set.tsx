@@ -7,7 +7,6 @@ import { Icon } from '@/components/ui/icon';
 import { IconRenderer } from '@/components/ui/icon-renderer';
 import { Progress } from '@/components/ui/progress';
 import { BookOpen, CheckCircle, TrendingUp, User, ChevronRight } from 'lucide-react-native';
-import { THEME } from '@/lib/theme';
 import { useColorScheme } from 'nativewind';
 
 export interface VocabularySet {
@@ -42,7 +41,6 @@ export function VocabSet({ set, onPress }: VocabSetProps) {
   const learnedCount = set.learnedCount ?? 0;
   const progress = itemCount > 0 ? (learnedCount / itemCount) * 100 : 0;
   const isCompleted = progress === 100;
-  const theme = THEME[colorScheme ?? 'light'];
 
   return (
     <Pressable onPress={onPress} className="active:opacity-80">

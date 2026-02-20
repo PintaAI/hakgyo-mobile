@@ -11,9 +11,9 @@ export default function TabLayout() {
   const theme = THEME[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const auth = useAuth();
-  const { session, isLoading } = auth as any;
+  const { session, loading } = auth as any;
 
-  if (isLoading) {
+  if (loading) {
     return <LoadingSpinner />;
   }
 
@@ -35,6 +35,7 @@ export default function TabLayout() {
           paddingTop: 5,
           height: 60 + insets.bottom,
         },
+        animation: 'shift',
       }}
     >
       <Tabs.Screen

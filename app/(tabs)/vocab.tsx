@@ -2,19 +2,23 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, ScrollView, RefreshControl } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { VocabSet } from '@/components/vocab';
 import { VocabItemsDrawer } from '@/components/vocab';
 import { VocabItemBottomSheet } from '@/components/vocab';
 import { Alert } from '@/components/ui/alert';
 import { vocabularyApi } from 'hakgyo-expo-sdk';
-import { AlertCircle } from 'lucide-react-native';
+import { AlertCircle, Gamepad2 } from 'lucide-react-native';
 import type { VocabularySet } from 'hakgyo-expo-sdk';
 import type { VocabularyItem } from 'hakgyo-expo-sdk';
 
 export default function VocabScreen() {
   const [selectedSetId, setSelectedSetId] = useState<number | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<VocabularyItem | null>(null);
+  const [learnedItemIds, setLearnedItemIds] = useState<Set<number>>(new Set());
   const [vocabSets, setVocabSets] = useState<VocabularySet[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,9 +58,27 @@ export default function VocabScreen() {
     fetchVocabSets(true);
   }, []);
 
-  const handleSetPress = useCallback((setId: number) => {
-    setSelectedSetId(setId);
-  }, []);
+  const handleSetPress = useCallback(async (setId: number) => {
+    setIsDrawerOpen(true);
+    
+    // Only fetch data if opening a different set
+    if (selectedSetId !== setId) {
+      setSelectedSetId(setId);
+      // Fetch learned items for this set
+      try {
+        const learnedResponse = await vocabularyApi.listItems({
+          collectionId: setId.toString(),
+          isLearned: true
+        });
+        if (learnedResponse.success && learnedResponse.data?.data) {
+          const learnedIds = new Set(learnedResponse.data.data.map(item => item.id));
+          setLearnedItemIds(learnedIds);
+        }
+      } catch (e) {
+        console.error('Error fetching learned items:', e);
+      }
+    }
+  }, [selectedSetId]);
 
   const handleItemPress = useCallback((item: VocabularyItem) => {
     setSelectedItem(item);
@@ -64,12 +86,38 @@ export default function VocabScreen() {
   }, []);
 
   const handleCloseDrawer = useCallback(() => {
-    setSelectedSetId(null);
+    setIsDrawerOpen(false);
   }, []);
 
   const handleCloseBottomSheet = useCallback(() => {
     setSelectedItem(null);
   }, []);
+
+  const handleLearnedToggle = useCallback((itemId: number, isLearned: boolean) => {
+    setLearnedItemIds((prev) => {
+      const newSet = new Set(prev);
+      if (isLearned) {
+        newSet.add(itemId);
+      } else {
+        newSet.delete(itemId);
+      }
+      return newSet;
+    });
+
+    // Update the learned count in the vocab set
+    setVocabSets((prev) =>
+      prev.map((set) => {
+        if (set.id === selectedSetId) {
+          const currentLearnedCount = set.learnedCount ?? 0;
+          return {
+            ...set,
+            learnedCount: isLearned ? currentLearnedCount + 1 : Math.max(0, currentLearnedCount - 1),
+          };
+        }
+        return set;
+      })
+    );
+  }, [selectedSetId]);
 
   const handleAudioPress = useCallback(() => {
     if (selectedItem) {
@@ -77,15 +125,29 @@ export default function VocabScreen() {
     }
   }, [selectedItem]);
 
+  const handleGamePress = useCallback(() => {
+    console.log('game button clicked');
+  }, []);
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <View className="flex-1">
         {/* Header */}
-        <View className="px-5 pt-4 pb-2">
-          <Text className="text-xl font-bold">Kosa-kata</Text>
-          <Text className="text-xs  text-muted-foreground mt-0.5">
-            {vocabSets.length} set tersedia
-          </Text>
+        <View className="px-5 pt-4 pb-2 flex-row justify-between items-start">
+          <View>
+            <Text className="text-xl font-bold">Kosa-kata</Text>
+            <Text className="text-xs  text-muted-foreground mt-0.5">
+              {vocabSets.length} set tersedia
+            </Text>
+          </View>
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={handleGamePress}
+            className="rounded-full"
+          >
+            <Icon as={Gamepad2} size={24} className="text-primary" />
+          </Button>
         </View>
 
         {/* Error Alert */}
@@ -154,38 +216,38 @@ export default function VocabScreen() {
       </View>
 
       {/* Vocab Items Drawer */}
-      {selectedSetId && (
-        <VocabItemsDrawer
-          key={`drawer-${selectedSetId}`}
-          setId={selectedSetId}
-          isOpen={!!selectedSetId}
-          onClose={handleCloseDrawer}
-          onItemPress={handleItemPress}
-          set={vocabSets.find((s) => s.id === selectedSetId)}
-        >
-          {/* Vocab Item Detail Bottom Sheet - Rendered inside the Modal if needed, but since BottomSheet needs gesture handling,
-              it might be tricky inside a Modal. However, the requirement is to show it ON TOP.
-              Since VocabItemsDrawer is now a Modal, anything outside it is covered.
-              So we should pass the BottomSheet as a child or render it inside the Drawer.
-              But BottomSheet is usually a global overlay.
-              
-              Better approach:
-              Pass the BottomSheet as children to VocabItemsDrawer? No, Drawer is a specific component.
-              
-              Actually, if VocabItemsDrawer is a Modal, we can't easily put another view on top of it unless it's another Modal.
-              @gorhom/bottom-sheet uses React Native Gesture Handler and Reanimated.
-              Using it inside a Modal is possible.
-          */}
-          {selectedItem && (
-            <VocabItemBottomSheet
-              key={`bottom-sheet-${selectedItem.id}`}
-              item={selectedItem}
-              onClose={handleCloseBottomSheet}
-              onAudioPress={handleAudioPress}
-            />
-          )}
-        </VocabItemsDrawer>
-      )}
+      <VocabItemsDrawer
+        setId={selectedSetId ?? 0}
+        isOpen={isDrawerOpen}
+        onClose={handleCloseDrawer}
+        onItemPress={handleItemPress}
+        set={vocabSets.find((s) => s.id === selectedSetId)}
+        learnedItemIds={learnedItemIds}
+      >
+        {/* Vocab Item Detail Bottom Sheet - Rendered inside the Modal if needed, but since BottomSheet needs gesture handling,
+            it might be tricky inside a Modal. However, the requirement is to show it ON TOP.
+            Since VocabItemsDrawer is now a Modal, anything outside it is covered.
+            So we should pass the BottomSheet as a child or render it inside the Drawer.
+            But BottomSheet is usually a global overlay.
+            
+            Better approach:
+            Pass the BottomSheet as children to VocabItemsDrawer? No, Drawer is a specific component.
+            
+            Actually, if VocabItemsDrawer is a Modal, we can't easily put another view on top of it unless it's another Modal.
+            @gorhom/bottom-sheet uses React Native Gesture Handler and Reanimated.
+            Using it inside a Modal is possible.
+        */}
+        {selectedItem && (
+          <VocabItemBottomSheet
+            key={`bottom-sheet-${selectedItem.id}`}
+            item={selectedItem}
+            onClose={handleCloseBottomSheet}
+            onAudioPress={handleAudioPress}
+            isLearned={learnedItemIds.has(selectedItem.id)}
+            onLearnedToggle={handleLearnedToggle}
+          />
+        )}
+      </VocabItemsDrawer>
     </SafeAreaView>
   );
 }

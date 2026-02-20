@@ -6,19 +6,20 @@ import { VocabItem } from './vocab-item';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { vocabularyApi } from 'hakgyo-expo-sdk';
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle,  withTiming, runOnJS } from 'react-native-reanimated';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 import type { VocabularySet } from 'hakgyo-expo-sdk';
 import type { VocabularyItem } from 'hakgyo-expo-sdk';
 
 interface VocabItemsDrawerProps {
-  setId: number;
+  setId?: number;
   isOpen?: boolean;
   onClose?: () => void;
   onItemPress?: (item: VocabularyItem) => void;
   set?: VocabularySet;
   children?: React.ReactNode;
+  learnedItemIds?: Set<number>;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -30,11 +31,11 @@ export function VocabItemsDrawer({
   onItemPress,
   set: setProp,
   children,
+  learnedItemIds: learnedItemIdsProp,
 }: VocabItemsDrawerProps) {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
   const [items, setItems] = useState<VocabularyItem[]>([]);
-  const [learnedItemIds, setLearnedItemIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const translateX = useSharedValue(SCREEN_WIDTH);
@@ -80,31 +81,25 @@ export function VocabItemsDrawer({
   });
 
   useEffect(() => {
-    if (isOpen && setId) {
+    if (setId && setId > 0) {
       fetchVocabItems();
     }
-  }, [isOpen, setId]);
+  }, [setId]);
 
   const fetchVocabItems = async () => {
+    if (!setId) return;
+    
     try {
       setLoading(true);
       setError(null);
       
-      // Fetch all items and learned items in parallel
-      const [itemsResponse, learnedResponse] = await Promise.all([
-        vocabularyApi.listItems({ collectionId: setId.toString() }),
-        vocabularyApi.listItems({ collectionId: setId.toString(), isLearned: true }),
-      ]);
+      // Fetch all items
+      const itemsResponse = await vocabularyApi.listItems({ collectionId: setId.toString() });
 
       if (itemsResponse.success && itemsResponse.data?.data) {
         setItems(itemsResponse.data.data);
       } else {
         setError(itemsResponse.error || 'Failed to load vocabulary items');
-      }
-
-      if (learnedResponse.success && learnedResponse.data?.data) {
-        const learnedIds = new Set(learnedResponse.data.data.map(item => item.id));
-        setLearnedItemIds(learnedIds);
       }
     } catch (e) {
       setError('Network error. Please check your connection.');
@@ -211,7 +206,7 @@ export function VocabItemsDrawer({
                       key={item.id}
                       item={item}
                       compact
-                      isLearned={learnedItemIds.has(item.id)}
+                      isLearned={learnedItemIdsProp?.has(item.id) ?? false}
                       onPress={() => handleItemPress(item)}
                     />
                   ))}

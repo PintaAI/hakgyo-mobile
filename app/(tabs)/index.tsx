@@ -28,7 +28,7 @@ function HeaderTitle() {
         style={{ width: 24, height: 24 }}
         resizeMode="contain"
       />
-      <Text className="text-xl font-bold">Hakgyo v1.1.2</Text>
+      <Text className="text-xl font-bold">Hakgyo</Text>
     </View>
   );
 }
@@ -37,7 +37,6 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const dailyVocabInputFocusedRef = useRef(false);
   const [isDailyVocabInputFocused, setIsDailyVocabInputFocused] = useState(false);
   

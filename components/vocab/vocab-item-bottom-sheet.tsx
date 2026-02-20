@@ -1,20 +1,18 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import {
-  Check,
   Volume2,
-  BookOpen,
   MessageSquare,
-  Quote,
+  CheckCircle,
+  Circle,
 } from 'lucide-react-native';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { VocabularyItem } from 'hakgyo-expo-sdk';
+import { vocabularyApi, type VocabularyItem } from 'hakgyo-expo-sdk';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 
@@ -24,6 +22,7 @@ interface VocabItemBottomSheetProps {
   onAudioPress?: () => void;
   onShare?: () => void;
   isLearned?: boolean;
+  onLearnedToggle?: (itemId: number, isLearned: boolean) => void;
 }
 
 const TYPE_LABELS = {
@@ -50,9 +49,29 @@ export function VocabItemBottomSheet({
   onClose,
   onAudioPress,
   isLearned = false,
+  onLearnedToggle,
 }: VocabItemBottomSheetProps) {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
+  const [localIsLearned, setLocalIsLearned] = useState(isLearned);
+
+  // Handle toggle learned status (optimistic UI)
+  const handleToggleLearned = useCallback(async () => {
+    const newStatus = !localIsLearned;
+    
+    // Optimistic update - update UI immediately
+    setLocalIsLearned(newStatus);
+    onLearnedToggle?.(item.id, newStatus);
+    
+    try {
+      await vocabularyApi.setLearnedStatus(item.id, newStatus);
+    } catch (error) {
+      console.error('Failed to toggle learned status:', error);
+      // Revert on error
+      setLocalIsLearned(!newStatus);
+      onLearnedToggle?.(item.id, !newStatus);
+    }
+  }, [item.id, localIsLearned, onLearnedToggle]);
 
   // Snap points for the bottom sheet
   const snapPoints = useMemo(() => [ '90%'], []);
@@ -98,12 +117,6 @@ export function VocabItemBottomSheet({
           {/* Top Actions & Metadata */}
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-2">
-              {isLearned && (
-                <View className="flex-row items-center gap-1 bg-green-500/10 px-2.5 py-1 rounded-full">
-                  <Icon as={Check} size={14} className="text-green-600" />
-                  <Text className="text-xs text-green-600 font-medium">Learned</Text>
-                </View>
-              )}
               <Badge variant="secondary" className="px-2.5">
                 <Text className="text-xs font-medium">{TYPE_LABELS[item.type]}</Text>
               </Badge>
@@ -116,6 +129,19 @@ export function VocabItemBottomSheet({
               )}
             </View>
             <View className="flex-row gap-1">
+              {/* Learned Toggle Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={handleToggleLearned}
+                className="rounded-full"
+              >
+                {localIsLearned ? (
+                  <Icon as={CheckCircle} size={24} className="text-green-600" />
+                ) : (
+                  <Icon as={Circle} size={24} className="text-muted-foreground" />
+                )}
+              </Button>
               {item.audioUrl && onAudioPress && (
                 <Button
                   variant="ghost"
@@ -148,7 +174,7 @@ export function VocabItemBottomSheet({
               <View className="flex-row items-center gap-2">
                 <Icon as={MessageSquare} size={18} className="text-primary" />
                 <Text className="text-base font-semibold text-foreground">
-                  Example Sentences
+                  Contoh Kalimat
                 </Text>
               </View>
               <View className="gap-3">
@@ -165,6 +191,7 @@ export function VocabItemBottomSheet({
               </View>
             </View>
           )}
+
         </View>
       </BottomSheetView>
     </BottomSheet>

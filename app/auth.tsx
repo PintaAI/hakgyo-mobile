@@ -7,13 +7,13 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function AuthScreen() {
   const auth = useAuth();
-  const { session, isLoading } = auth as any;
+  const { session, loading } = auth as any;
   const keyboard = useAnimatedKeyboard();
   const animatedStyle = useAnimatedStyle(() => ({
     paddingBottom: keyboard.height.value,
   }));
 
-  if (isLoading) {
+  if (loading) {
     return <LoadingSpinner />;
   }
 

@@ -159,19 +159,19 @@ function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslat
           </Animated.View>
 
           <Animated.View style={backStyle}>
-            <Card className="w-full h-full items-center justify-center bg-success/10 dark:bg-success/20 border-success/30 dark:border-success/40 shadow-md elevation-5">
+            <Card className="w-full h-full items-center justify-center bg-success dark:bg-success border-success dark:border-success shadow-md elevation-5">
               <CardContent className="items-center justify-center p-6">
-                <Text className="text-3xl font-bold text-center text-success dark:text-success-foreground mb-2">
+                <Text className="text-3xl font-bold text-center text-success-foreground mb-2">
                   {item.indonesian}
                 </Text>
                 {item.exampleSentences?.[0] && (
-                  <Text className="text-xs text-center text-muted-foreground mt-2 italic">
+                  <Text className="text-xs text-center text-success-foreground/80 mt-2 italic">
                     "{item.exampleSentences[0]}"
                   </Text>
                 )}
-                <View className="flex-row items-center mt-4 bg-success/20 dark:bg-success/30 px-3 py-1 rounded-full">
-                  <Icon as={Check} size={16} className="text-success dark:text-success-foreground mr-1" />
-                  <Text className="text-xs font-medium text-success dark:text-success-foreground">Benar!</Text>
+                <View className="flex-row items-center mt-4 bg-success-foreground/20 dark:bg-success-foreground/30 px-3 py-1 rounded-full">
+                  <Icon as={Check} size={16} className="text-success-foreground mr-1" />
+                  <Text className="text-xs font-medium text-success-foreground">Benar!</Text>
                 </View>
               </CardContent>
             </Card>

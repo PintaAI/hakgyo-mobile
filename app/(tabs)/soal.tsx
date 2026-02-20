@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, RefreshControl } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +13,7 @@ import { soalApi } from 'hakgyo-expo-sdk';
 
 
 export default function SoalScreen() {
+  const router = useRouter();
   const [collections, setCollections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -117,7 +119,11 @@ export default function SoalScreen() {
           ) : (
             <View className="p-4 gap-3">
               {collections.map((item) => (
-                <SoalSet key={item.id} set={item} />
+                <SoalSet
+                  key={item.id}
+                  set={item}
+                  onPress={() => router.push({ pathname: '/soal/practice/[id]', params: { id: String(item.id) } })}
+                />
               ))}
             </View>
           )}
