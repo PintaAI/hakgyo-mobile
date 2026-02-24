@@ -29,9 +29,16 @@ module.exports = () => {
   return {
     ...config.expo,
     ...envConfig,
+    developmentClient: {
+      silentLaunch: true,
+    },
     ios: {
       ...config.expo.ios,
       bundleIdentifier: envConfig.bundleIdentifier,
+      infoPlist: {
+        ...config.expo.ios?.infoPlist,
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
       ...config.expo.android,

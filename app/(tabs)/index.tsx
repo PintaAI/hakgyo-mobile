@@ -9,6 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DailyVocabulary } from '@/components/daily-vocabulary';
 import { DailySoal } from '@/components/daily-soal';
 import { useDailyLogin } from '@/hooks/use-daily-login';
+import { DailyLoginPopup } from '@/components/daily-login-popup';
 import { UserStats } from '@/components/user-stats';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '@/components/ui/icon';
@@ -46,7 +47,7 @@ export default function HomeScreen() {
 
 
   // Trigger daily login event when user opens the app
-  useDailyLogin();
+  const { showPopup, dailyLoginData, dismissPopup } = useDailyLogin();
 
   // Calculate level from XP: level = Math.floor(Math.sqrt(totalXP / 100)) + 1
   const calculateLevel = (xp: number): number => Math.floor(Math.sqrt(xp / 100)) + 1;
@@ -79,13 +80,13 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         enabled={isDailyVocabInputFocused || dailyVocabInputFocusedRef.current}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 + insets.bottom : 20}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName="p-4 gap-6"
+          contentContainerClassName={`p-4 gap-6 ${Platform.OS === 'android' ? 'pb-24' : ''}`}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 60 + insets.bottom }}
+          
         >
         {/* Header */}
         <View className="flex-row justify-between items-center">
@@ -95,7 +96,8 @@ export default function HomeScreen() {
 
         {/* Stats Section */}
         <UserStats
-          streak={user?.currentStreak || 0}
+          streak={dailyLoginData?.currentStreak ?? user?.currentStreak ?? 0}
+          bestStreak={user?.longestStreak}
           level={optimisticLevel || user?.level || 1}
           xp={optimisticXP || user?.xp || 0}
         />
@@ -142,6 +144,15 @@ export default function HomeScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
+      
+      {/* Daily Login Popup */}
+      {dailyLoginData && (
+        <DailyLoginPopup
+          visible={showPopup}
+          onClose={dismissPopup}
+          data={dailyLoginData}
+        />
+      )}
     </SafeAreaView>
   );
 }

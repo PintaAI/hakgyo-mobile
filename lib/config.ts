@@ -77,10 +77,6 @@ export const sdkConfig = {
     retries: 3,
     retryDelay: 1000, // 1 second
   },
-  logging: {
-    enabled: __DEV__,
-    level: __DEV__ ? 'debug' : 'error',
-  },
   platform: {
     platformType: Platform.OS as 'ios' | 'android' | 'web',
   },

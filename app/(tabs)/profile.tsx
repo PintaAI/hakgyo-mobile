@@ -1,5 +1,5 @@
 import { useAuth } from 'hakgyo-expo-sdk';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SignoutButton } from '@/components/auth/signout-button';
@@ -48,7 +48,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <ScrollView className="flex-1" contentContainerClassName="p-6 gap-6">
+      <ScrollView className="flex-1" contentContainerClassName={`p-6 gap-6 ${Platform.OS === 'android' ? 'pb-24' : ''}`}>
         {/* Profile Header */}
         <View className="items-center gap-4 pt-4">
           <LinearGradient

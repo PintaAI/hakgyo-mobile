@@ -150,9 +150,9 @@ export function VocabItemsDrawer({
               bottom: 0,
               shadowColor: '#000',
               shadowOffset: { width: -2, height: 0 },
-              shadowOpacity: 0.25,
-              shadowRadius: 8,
-              elevation: 5,
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 4,
               paddingTop: insets.top,
               backgroundColor: NAV_THEME[colorScheme ?? 'light'].colors.background,
             }, rStyle]}
@@ -225,10 +225,10 @@ export function VocabItemsDrawer({
 const styles = StyleSheet.create({
   header: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 5,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
     zIndex: 10,
   },
 });

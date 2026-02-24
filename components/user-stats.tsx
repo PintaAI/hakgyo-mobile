@@ -10,11 +10,12 @@ import { GRADIENTS } from '@/lib/theme';
 
 interface UserStatsProps {
   streak: number;
+  bestStreak?: number;
   level: number;
   xp: number;
 }
 
-export function UserStats({ streak, level, xp }: UserStatsProps) {
+export function UserStats({ streak, bestStreak, level, xp }: UserStatsProps) {
   const { colorScheme } = useColorScheme();
 
   // Calculate which days of the week should show the flame based on streak
@@ -98,7 +99,17 @@ export function UserStats({ streak, level, xp }: UserStatsProps) {
         <CardContent className="items-center gap-1 px-2">
           <View className="w-full">
             <View className="flex-row justify-between items-center mb-1">
-             
+              <View className="flex-row items-center gap-1">
+                <Icon as={Flame} size={16} className="text-fail dark:text-fail-foreground" />
+                <Text className="font-bold text-base text-foreground">{streak}</Text>
+                <Text className="text-xs text-muted-foreground">day streak</Text>
+              </View>
+              {bestStreak !== undefined && bestStreak > 0 && (
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-[10px] text-muted-foreground">Best:</Text>
+                  <Text className="font-semibold text-xs text-primary">{bestStreak}</Text>
+                </View>
+              )}
             </View>
             <View className="flex-row justify-between">
               {dayLabels.map((label, index) => (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, RefreshControl } from 'react-native';
+import { View, ScrollView, RefreshControl, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { SoalSet } from '@/components/soal';
-import { HelpCircle, AlertCircle } from 'lucide-react-native';
+import { HelpCircle, AlertCircle, FileText } from 'lucide-react-native';
 import { soalApi } from 'hakgyo-expo-sdk';
 
 
@@ -58,10 +58,25 @@ export default function SoalScreen() {
       <View className="flex-1">
         {/* Header */}
         <View className="px-5 pt-4 pb-2">
-          <Text className="text-xl font-semibold">Latihan Soal</Text>
-          <Text className="text-xs text-muted-foreground mt-0.5">
-            {collections.length} koleksi soal tersedia
-          </Text>
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-xl font-semibold">Latihan Soal</Text>
+              <Text className="text-xs text-muted-foreground mt-0.5">
+                {collections.length} koleksi soal tersedia
+              </Text>
+            </View>
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={() => {
+                router.push('/soal/tryout');
+              }}
+              className="flex-row items-center gap-2"
+            >
+              <Icon as={FileText} size={16} className="text-foreground" />
+              <Text className="text-sm">Tryout</Text>
+            </Button>
+          </View>
         </View>
 
         {/* Content */}
@@ -72,7 +87,7 @@ export default function SoalScreen() {
           }
         >
           {loading || refreshing ? (
-            <View className="p-4 gap-3">
+            <View className={`p-4 gap-3 ${Platform.OS === 'android' ? 'pb-20' : ''}`}>
               {[...Array(3)].map((_, i) => (
                 <View key={i} className="border border-border/50 rounded-lg p-4 gap-3">
                   {/* Icon & Title Row */}
@@ -102,7 +117,7 @@ export default function SoalScreen() {
               ))}
             </View>
           ) : error ? (
-            <View className="p-4">
+            <View className={`p-4 ${Platform.OS === 'android' ? 'pb-20' : ''}`}>
               <Alert icon={AlertCircle} variant="destructive">
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
@@ -112,12 +127,12 @@ export default function SoalScreen() {
               </Button>
             </View>
           ) : collections.length === 0 ? (
-            <View className="p-4 items-center justify-center">
+            <View className={`p-4 items-center justify-center ${Platform.OS === 'android' ? 'pb-20' : ''}`}>
               <Icon as={HelpCircle} size={48} className="text-muted-foreground mb-4" />
               <Text className="text-muted-foreground">Belum ada data tersedia</Text>
             </View>
           ) : (
-            <View className="p-4 gap-3">
+            <View className={`p-4 gap-3 ${Platform.OS === 'android' ? 'pb-20' : ''}`}>
               {collections.map((item) => (
                 <SoalSet
                   key={item.id}

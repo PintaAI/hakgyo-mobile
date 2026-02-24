@@ -44,29 +44,29 @@ export function VocabSet({ set, onPress }: VocabSetProps) {
 
   return (
     <Pressable onPress={onPress} className="active:opacity-80">
-      <Card className="border-border/50 shadow-md shadow-black">
+      <Card className="border-border/50 shadow-sm shadow-black">
         <CardContent>
           {/* Top Section - Icon & Title */}
           <View className="flex-row items-center gap-3 pb-3">
             {/* Icon Container */}
             {set.icon ? (
-              <View className="w-12 h-12 items-center justify-center rounded overflow-hidden ">
+              <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 8, overflow: 'hidden' }}>
                 <LinearGradient
                   colors={[colorScheme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)', colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  className="w-full h-full items-center justify-center"
+                  style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <IconRenderer iconName={set.icon} size={22} className="text-primary" />
                 </LinearGradient>
               </View>
             ) : (
-              <View className="w-12 h-12 items-center justify-center rounded overflow-hidden">
+              <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 8, overflow: 'hidden' }}>
                 <LinearGradient
                   colors={[colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', colorScheme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  className="w-full h-full items-center justify-center"
+                  style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Icon as={BookOpen} size={22} className="text-muted-foreground" />
                 </LinearGradient>

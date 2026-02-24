@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react-native';
+import { ArrowLeft, Clock, CheckCircle, AlertCircle } from 'lucide-react-native';
 import { tryoutApi, soalApi, type Tryout, type TryoutParticipant, type Soal, type Opsi } from 'hakgyo-expo-sdk';
 
 interface Answer {
@@ -16,8 +16,8 @@ interface Answer {
 }
 
 export default function TryoutScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+const { id } = useLocalSearchParams<{ id: string }>();
+const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [tryout, setTryout] = useState<Tryout | null>(null);
@@ -40,12 +40,14 @@ export default function TryoutScreen() {
     };
   }, [id]);
 
-  const startTimer = (endTime: string) => {
+  const startTimer = (durationMinutes: number) => {
+    // Count down from durationMinutes (e.g. 30 → starts at 30:00 in MM:SS)
+    const totalSeconds = durationMinutes * 60;
+    const startedAt = Date.now();
+
     const updateTimer = () => {
-      const now = new Date();
-      const end = new Date(endTime);
-      const diff = end.getTime() - now.getTime();
-      const seconds = Math.max(0, Math.floor(diff / 1000));
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const seconds = Math.max(0, totalSeconds - elapsed);
       setTimeLeft(seconds);
 
       if (seconds <= 0) {
@@ -71,31 +73,54 @@ export default function TryoutScreen() {
       setLoading(true);
       setError(null);
 
+      console.log('Fetching tryout details for id:', id);
+      const parsedId = Number(id);
+      console.log('Parsed id:', parsedId, 'isNaN:', isNaN(parsedId));
+
       // Fetch tryout details
-      const tryoutResponse = await tryoutApi.get(Number(id));
+      const tryoutResponse = await tryoutApi.get(parsedId);
+      console.log('Tryout API Response:', tryoutResponse);
+
       if (tryoutResponse.success && tryoutResponse.data) {
-        setTryout(tryoutResponse.data);
-        
-        // Fetch questions separately using soalApi
-        const questionsResponse = await soalApi.listQuestions({
-          koleksiSoalId: String(tryoutResponse.data.koleksiSoalId),
-          limit: 100,
-          offset: 0,
-        });
-        if (questionsResponse.success && questionsResponse.data?.data) {
-          setSoals(questionsResponse.data.data);
+        // FIX: SDK double-wraps the response - actual Tryout data is at .data.data
+        const rawTryoutData = tryoutResponse.data as any;
+        const tryoutData: Tryout = rawTryoutData?.data ?? rawTryoutData;
+        console.log('Resolved tryout data:', tryoutData);
+        console.log('koleksiSoalId:', tryoutData.koleksiSoalId);
+        console.log('Embedded soals count:', tryoutData.koleksiSoal?.soals?.length ?? 0);
+
+        setTryout(tryoutData);
+
+        // FIX: Use the embedded soals from the tryout response directly.
+        // The backend already eagerly loads koleksiSoal.soals in GET /api/tryout/[id],
+        // so no separate API call is needed. This avoids the broken koleksiSoalId filter.
+        if (tryoutData.koleksiSoal?.soals && tryoutData.koleksiSoal.soals.length > 0) {
+          setSoals(tryoutData.koleksiSoal.soals);
+        } else if (tryoutData.koleksiSoalId) {
+          // Fallback: fetch separately only if embedded soals are missing
+          const questionsResponse = await soalApi.listQuestions({
+            koleksiSoalId: String(tryoutData.koleksiSoalId),
+            limit: 100,
+            offset: 0,
+          });
+          if (questionsResponse.success && questionsResponse.data?.data) {
+            setSoals(questionsResponse.data.data);
+          }
+        }
+
+        // FIX: Use tryoutData.duration (minutes) to count down the student's personal time
+        if (tryoutData.duration) {
+          startTimer(tryoutData.duration);
         }
       }
 
       // Participate in tryout
       const participantResponse = await tryoutApi.participate(Number(id));
       if (participantResponse.success && participantResponse.data) {
-        setParticipant(participantResponse.data);
-      }
-
-      // Start timer based on tryout endTime
-      if (tryoutResponse.data?.endTime) {
-        startTimer(tryoutResponse.data.endTime);
+        // FIX: SDK double-wraps - actual participant is at .data.data
+        const rawParticipant = participantResponse.data as any;
+        const participantData = rawParticipant?.data ?? rawParticipant;
+        setParticipant(participantData);
       }
     } catch (err) {
       console.error('Error fetching tryout data:', err);
@@ -166,32 +191,8 @@ export default function TryoutScreen() {
     try {
       const result = await tryoutApi.submit(Number(id), answers);
       if (result.success && result.data) {
-        const resultData = result.data as any;
-        const score = resultData.score ?? 0;
-        const correctCount = resultData.correctCount ?? 0;
-        const totalCount = resultData.totalCount ?? resultData.totalQuestions ?? soals.length;
-        let message = `Skor Anda: ${score}% (${correctCount}/${totalCount} benar)`;
-        
-        if (resultData.gamification) {
-          const quizXP = resultData.gamification.quiz?.totalXP || 0;
-          if (quizXP > 0) {
-            message += `\n\nXP yang didapat: +${quizXP}`;
-          }
-          if (resultData.gamification.perfectScore) {
-            message += '\n\n🎉 Skor Sempurna! Bonus +30 XP';
-          }
-        }
-
-        Alert.alert(
-          'Tryout Selesai!',
-          message,
-          [
-            {
-              text: 'Lihat Detail',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        // Navigate to results screen
+        router.push(`/soal/tryout/${id}/result`);
       }
     } catch (err) {
       console.error('Error submitting answers:', err);

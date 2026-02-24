@@ -25,7 +25,7 @@ import { Text } from '@/components/ui/text';
 import { ArrowRight, Check, HelpCircle, RefreshCw, Send } from 'lucide-react-native';
 
 const SCREEN_WIDTH = 300;
-const SWIPE_THRESHOLD = 100;
+const SWIPE_THRESHOLD = 10;
 
 const formatPos = (pos?: string): string =>
   pos?.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) ?? '';

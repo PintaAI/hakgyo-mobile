@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, ScrollView, RefreshControl } from 'react-native';
+import { View, ScrollView, RefreshControl, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -197,7 +197,7 @@ export default function VocabScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
           >
-            <View className="p-4 gap-3">
+            <View className={`p-4 gap-3 ${Platform.OS === 'android' ? 'pb-20' : ''}`}>
               {vocabSets.map((set) => (
                 <VocabSet
                   key={set.id}

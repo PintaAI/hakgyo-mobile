@@ -1,17 +1,31 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { gamificationApi } from 'hakgyo-expo-sdk';
 import { useAuth } from 'hakgyo-expo-sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DAILY_LOGIN_STORAGE_KEY = 'daily_login_last_date';
 
+export interface DailyLoginData {
+  xpGained: number;
+  currentStreak: number;
+  streakMilestoneReached: boolean;
+  level?: number;
+}
+
 /**
  * Hook to trigger daily login event when user opens the app.
  * Awards 5 XP for the first login of the day and maintains streak.
  * Only triggers once per day per user.
+ * 
+ * @returns {Object} Contains the popup state and daily login data
+ * @returns {boolean} showPopup - Whether to show the daily login popup
+ * @returns {DailyLoginData | null} dailyLoginData - Data for the daily login popup
+ * @returns {() => void} dismissPopup - Function to dismiss the popup
  */
 export function useDailyLogin() {
   const { user } = useAuth();
+  const [showPopup, setShowPopup] = useState(false);
+  const [dailyLoginData, setDailyLoginData] = useState<DailyLoginData | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -35,15 +49,25 @@ export function useDailyLogin() {
         });
 
         if (result.success && result.data) {
-          console.log(`Daily login: +${result.data.data?.totalXP} XP`);
+          const xpGained = result.data.data?.totalXP || 0;
+          const currentStreak = result.data.data?.currentStreak || 0;
+          const streakMilestoneReached = result.data.data?.streakMilestoneReached || false;
+          
+          console.log(`Daily login: +${xpGained} XP, Streak: ${currentStreak} days`);
 
           // Store today's date to prevent multiple triggers
           await AsyncStorage.setItem(storageKey, today);
 
-          // Optional: Show notification for streak milestone
-          if (result.data.data?.streakMilestoneReached) {
-            console.log(`Streak milestone: ${result.data.data?.currentStreak} days!`);
-          }
+          // Set data for popup
+          setDailyLoginData({
+            xpGained,
+            currentStreak,
+            streakMilestoneReached,
+            level: user.level,
+          });
+          
+          // Show popup
+          setShowPopup(true);
         }
       } catch (error) {
         console.error('Failed to process daily login:', error);
@@ -52,4 +76,10 @@ export function useDailyLogin() {
 
     processDailyLogin();
   }, [user]);
+
+  const dismissPopup = () => {
+    setShowPopup(false);
+  };
+
+  return { showPopup, dailyLoginData, dismissPopup };
 }
