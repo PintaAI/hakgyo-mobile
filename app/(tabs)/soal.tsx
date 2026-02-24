@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, RefreshControl, Platform } from 'react-native';
+import { View, ScrollView, RefreshControl, Platform, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Background } from '@/components/ui/background';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { SoalSet } from '@/components/soal';
-import { HelpCircle, AlertCircle, FileText } from 'lucide-react-native';
+import { HelpCircle, AlertCircle, FileText, Search } from 'lucide-react-native';
 import { soalApi } from 'hakgyo-expo-sdk';
 
 
@@ -53,8 +54,13 @@ export default function SoalScreen() {
     fetchData(true);
   }, []);
 
+  const handleWebsitePress = useCallback(() => {
+    Linking.openURL('https://hakgyo.vercel.app/');
+  }, []);
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <Background />
       <View className="flex-1">
         {/* Header */}
         <View className="px-5 pt-4 pb-2">
@@ -140,6 +146,22 @@ export default function SoalScreen() {
                   onPress={() => router.push({ pathname: '/soal/practice/[id]', params: { id: String(item.id) } })}
                 />
               ))}
+              {collections.length > 0 && (
+                <View className="mt-4 p-4 bg-muted/30 rounded-lg border border-border/50">
+                  <Text className="text-sm text-muted-foreground text-center mb-3">
+                    kalo mau cari soal lebih, cek website dan gabung ke kelas
+                  </Text>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onPress={handleWebsitePress}
+                    className="w-full flex-row gap-2"
+                  >
+                    <Icon as={Search} size={16} className="text-foreground" />
+                    <Text className="text-sm">Cari Soal</Text>
+                  </Button>
+                </View>
+              )}
             </View>
           )}
         </ScrollView>

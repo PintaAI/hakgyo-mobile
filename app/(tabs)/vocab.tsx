@@ -1,16 +1,17 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, ScrollView, RefreshControl, Platform } from 'react-native';
+import { View, ScrollView, RefreshControl, Platform, Linking } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Background } from '@/components/ui/background';
 import { VocabSet } from '@/components/vocab';
 import { VocabItemsDrawer } from '@/components/vocab';
 import { VocabItemBottomSheet } from '@/components/vocab';
 import { Alert } from '@/components/ui/alert';
 import { vocabularyApi } from 'hakgyo-expo-sdk';
-import { AlertCircle, Gamepad2 } from 'lucide-react-native';
+import { AlertCircle, Gamepad2, Search } from 'lucide-react-native';
 import type { VocabularySet } from 'hakgyo-expo-sdk';
 import type { VocabularyItem } from 'hakgyo-expo-sdk';
 
@@ -129,8 +130,13 @@ export default function VocabScreen() {
     console.log('game button clicked');
   }, []);
 
+  const handleWebsitePress = useCallback(() => {
+    Linking.openURL('https://hakgyo.vercel.app/');
+  }, []);
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <Background />
       <View className="flex-1">
         {/* Header */}
         <View className="px-5 pt-4 pb-2 flex-row justify-between items-start">
@@ -208,6 +214,22 @@ export default function VocabScreen() {
               {vocabSets.length === 0 && !error && (
                 <View className="py-10 items-center">
                   <Text className="text-muted-foreground">No vocabulary sets available</Text>
+                </View>
+              )}
+              {vocabSets.length > 0 && (
+                <View className="mt-4 p-4 bg-muted/30 rounded-lg border border-border/50">
+                  <Text className="text-sm text-muted-foreground text-center mb-3">
+                    kalo mau cari kosa kata lebih, cek website dan cari kelas
+                  </Text>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onPress={handleWebsitePress}
+                    className="w-full flex-row gap-2"
+                  >
+                    <Icon as={Search} size={16} className="text-foreground" />
+                    <Text className="text-sm">Cari Kosa Kata</Text>
+                  </Button>
                 </View>
               )}
             </View>

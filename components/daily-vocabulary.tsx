@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert as RNAlert, StyleSheet, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   interpolateColor,
@@ -22,7 +24,8 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { ArrowRight, Check, HelpCircle, RefreshCw, Send } from 'lucide-react-native';
+import { Alert } from '@/components/ui/alert';
+import { ArrowRight, Check, HelpCircle, RefreshCw, Send, Trophy } from 'lucide-react-native';
 
 const SCREEN_WIDTH = 300;
 const SWIPE_THRESHOLD = 10;
@@ -36,20 +39,26 @@ interface ActiveCardProps {
   errorTrigger: number;
   onSwipeComplete: () => void;
   onTranslationChange: (value: number) => void;
+  index: number;
 }
 
 // Active card - handles swipe gestures and has its own animation state
-function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslationChange }: ActiveCardProps) {
+function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslationChange, index }: ActiveCardProps) {
   const translationX = useSharedValue(0);
   const rotateY = useSharedValue(0);
   const shakeX = useSharedValue(0);
   const errorColorProgress = useSharedValue(0);
   const isExiting = useSharedValue(false);
 
-  // Flip animation
+  // Flip animation - use timing with ease for natural card flip
   useEffect(() => {
     if (isFlipped) {
-      rotateY.value = withSpring(180);
+      rotateY.value = withTiming(180, {
+        duration: 400,
+        easing: Easing.out(Easing.ease),
+      });
+    } else {
+      rotateY.value = withTiming(0, { duration: 300 });
     }
   }, [isFlipped, rotateY]);
 
@@ -71,6 +80,22 @@ function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslat
       );
     }
   }, [errorTrigger, shakeX, errorColorProgress]);
+
+  // Teasing swipe hint animation on mount - simulates a natural swipe gesture
+  // Only runs for the first card (index === 0)
+  useEffect(() => {
+    if (index !== 0) return;
+    const timer = setTimeout(() => {
+      if (isExiting.value) return;
+      translationX.value = withSequence(
+        withTiming(55,  { duration: 250 }),
+        withSpring(0,   { damping: 12 }),
+        withTiming(-30, { duration: 200 }),
+        withSpring(0,   { damping: 12 })
+      );
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []); // empty deps = run once on mount only
 
   // Notify parent of translation changes for the background card scale effect
   useDerivedValue(() => {
@@ -129,13 +154,19 @@ function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslat
   }));
 
   const frontStyle = useAnimatedStyle(() => ({
-    transform: [{ rotateY: `${interpolate(rotateY.value, [0, 180], [0, 180])}deg` }],
+    transform: [
+      { perspective: 1000 },
+      { rotateY: `${rotateY.value}deg` },
+    ],
     backfaceVisibility: 'hidden' as const,
     ...StyleSheet.absoluteFillObject,
   }));
 
   const backStyle = useAnimatedStyle(() => ({
-    transform: [{ rotateY: `${interpolate(rotateY.value, [0, 180], [180, 360])}deg` }],
+    transform: [
+      { perspective: 1000 },
+      { rotateY: `${rotateY.value + 180}deg` },
+    ],
     backfaceVisibility: 'hidden' as const,
     width: '100%',
     height: '100%',
@@ -239,11 +270,30 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
   const [showHint, setShowHint] = useState(false);
   const [errorTrigger, setErrorTrigger] = useState(0);
   const [activeTranslation, setActiveTranslation] = useState(0);
-  const [incorrectAttempts, setIncorrectAttempts] = useState<Record<number, number>>({});
+  const [correctAttempts, setCorrectAttempts] = useState<Record<number, number>>({});
   const [processedItems, setProcessedItems] = useState<Set<number>>(new Set());
   const [hasTried, setHasTried] = useState(false);
+  const [learnedAlert, setLearnedAlert] = useState<{ vocabId: number; word: string } | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
   const { user } = useAuth();
+
+  const CORRECT_ATTEMPTS_KEY = `vocab_correct_attempts_${user?.id || 'guest'}`;
+
+  // Load persisted correctAttempts from AsyncStorage on mount
+  useEffect(() => {
+    const loadAttempts = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(CORRECT_ATTEMPTS_KEY);
+        if (stored) {
+          setCorrectAttempts(JSON.parse(stored));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadAttempts();
+  }, [CORRECT_ATTEMPTS_KEY]);
 
   const fetchDailyVocab = useCallback(async () => {
     try {
@@ -273,7 +323,12 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
     setShowHint(false);
     setErrorTrigger(0);
     setActiveTranslation(0);
+    setLearnedAlert(null); // Clear learned alert when moving to next card
     setCurrentIndex((prev) => (prev >= vocabList.length - 1 ? 0 : prev + 1));
+    // Focus input and open keyboard after a short delay
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
   }, [vocabList.length]);
 
   const handleRefresh = useCallback(() => {
@@ -285,17 +340,43 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
     setErrorTrigger(0);
     setActiveTranslation(0);
     setHasTried(false);
-    setIncorrectAttempts({});
+    // Do NOT reset correctAttempts — keep counts so they survive auto-refresh
     setProcessedItems(new Set());
+    setLearnedAlert(null);
     fetchDailyVocab();
   }, [fetchDailyVocab]);
 
-  // Auto-refresh when all items are completed
+  // Show dialog when all items are completed
   useEffect(() => {
     if (hasTried && !refreshing) {
       const timer = setTimeout(() => {
-        handleRefresh();
-      }, 1500); // Wait 1.5 seconds before refreshing
+        RNAlert.alert(
+          '🎉 Selesai!',
+          'Kamu telah menyelesaikan semua kosa kata. Ingin latihan dengan kosa kata baru atau ulangi yang sama?',
+          [
+            {
+              text: 'Ulangi yang Sama',
+              style: 'cancel',
+              onPress: () => {
+                // Reset progress but keep same vocab list
+                setCurrentIndex(0);
+                setInput('');
+                setIsCorrect(false);
+                setShowHint(false);
+                setErrorTrigger(0);
+                setActiveTranslation(0);
+                setHasTried(false);
+                setProcessedItems(new Set());
+                setLearnedAlert(null);
+              },
+            },
+            {
+              text: 'Kosa Kata Baru',
+              onPress: handleRefresh,
+            },
+          ]
+        );
+      }, 500);
       return () => clearTimeout(timer);
     }
   }, [hasTried, refreshing, handleRefresh]);
@@ -308,11 +389,9 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
     }
     
     try {
-      console.log('Marking vocabulary as learned:', { vocabId, isLearned });
-      const response = await vocabularyApi.setLearnedStatus(vocabId, isLearned);
-      console.log('Mark as learned response:', response);
+      await vocabularyApi.setLearnedStatus(vocabId, isLearned);
     } catch (error) {
-      console.error('Failed to mark vocabulary as learned:', error);
+      // silently fail — learned status is best-effort
     }
   }, [onStatsUpdate]);
 
@@ -325,43 +404,49 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
 
     if (isAnswerCorrect) {
       setIsCorrect(true);
-      // Mark as learned when answer is correct
-      markAsLearned(vocabId, true);
-      // Reset incorrect attempts for this item
-      setIncorrectAttempts((prev) => ({ ...prev, [vocabId]: 0 }));
-      setProcessedItems((prev) => {
-        const newSet = new Set(prev).add(vocabId);
-        // Show refresh button when all items have been processed
-        if (newSet.size === vocabList.length) {
-          setHasTried(true);
+
+      // Compute new count outside updater to avoid calling setState inside setState
+      setCorrectAttempts((prev) => {
+        const newCount = (prev[vocabId] || 0) + 1;
+        
+        if (newCount >= 3) {
+          // Remove from persisted attempts since it's fully learned
+          const { [vocabId]: _, ...rest } = { ...prev, [vocabId]: newCount };
+          AsyncStorage.setItem(CORRECT_ATTEMPTS_KEY, JSON.stringify(rest)).catch(() => {});
+          return rest;
         }
-        return newSet;
+        
+        const updated = { ...prev, [vocabId]: newCount };
+        AsyncStorage.setItem(CORRECT_ATTEMPTS_KEY, JSON.stringify(updated)).catch(() => {});
+        return updated;
       });
+
+      // Check current count to trigger side effects — read from state ref via functional update
+      const currentCount = (correctAttempts[vocabId] || 0) + 1;
+      if (currentCount >= 3) {
+        markAsLearned(vocabId, true);
+        setLearnedAlert({ vocabId, word: currentVocab.korean });
+      }
+
+      const newProcessed = new Set(processedItems).add(vocabId);
+      setProcessedItems(newProcessed);
+      if (newProcessed.size >= vocabList.length) {
+        setHasTried(true);
+      }
     } else {
       setErrorTrigger((prev) => prev + 1);
       setInput('');
       
-      // Track incorrect attempts
-      setIncorrectAttempts((prev) => {
-        const newAttempts = { ...prev, [vocabId]: (prev[vocabId] || 0) + 1 };
-        
-        // If 2 incorrect attempts, mark as not learned
-        if (newAttempts[vocabId] >= 2 && !processedItems.has(vocabId)) {
-          markAsLearned(vocabId, false);
-          setProcessedItems((prev) => {
-            const newSet = new Set(prev).add(vocabId);
-            // Show refresh button when all items have been processed
-            if (newSet.size === vocabList.length) {
-              setHasTried(true);
-            }
-            return newSet;
-          });
-        }
-        
-        return newAttempts;
-      });
+      // Immediately mark as not learned on incorrect answer
+      markAsLearned(vocabId, false);
+      
+      const newProcessed = new Set(processedItems).add(vocabId);
+      setProcessedItems(newProcessed);
+      if (newProcessed.size >= vocabList.length) {
+        setHasTried(true);
+      }
     }
-  }, [currentIndex, input, vocabList, markAsLearned, processedItems]);
+  }, [currentIndex, input, vocabList, markAsLearned, processedItems, correctAttempts, CORRECT_ATTEMPTS_KEY]);
 
   const handleTranslationChange = useCallback((value: number) => {
     setActiveTranslation(value);
@@ -405,6 +490,15 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
 
   return (
     <View className="w-full max-w-md mx-auto gap-6">
+      {/* Learned Alert */}
+      {learnedAlert && (
+        <Alert icon={Trophy} iconClassName="text-success" className="mb-2">
+          <Text className="text-success pl-6 font-medium">
+            Kamu berhasil hafal kosa kata "{learnedAlert.word}"!
+          </Text>
+        </Alert>
+      )}
+
       <View style={styles.cardStack}>
         {/* Word count indicator - top right corner */}
         <View style={styles.wordCountBadge}>
@@ -412,6 +506,24 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
             {processedItems.size}/{vocabList.length}
           </Text>
         </View>
+
+        {/* Correct attempts progress indicator - top left corner */}
+        {currentVocab && (
+          <View style={styles.progressBadge}>
+            <View className="flex-row items-center gap-1">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <View
+                  key={i}
+                  className={`w-2 h-2 rounded-full ${
+                    i < (correctAttempts[currentVocab.id] || 0)
+                      ? 'bg-primary'
+                      : 'bg-muted-foreground/30'
+                  }`}
+                />
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Hint text - bottom center of card */}
         {showHint && currentVocab && (
@@ -447,6 +559,7 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
             errorTrigger={errorTrigger}
             onSwipeComplete={nextCard}
             onTranslationChange={handleTranslationChange}
+            index={currentIndex}
           />
         )}
       </View>
@@ -464,6 +577,7 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
                 <Icon as={HelpCircle} size={20} className="text-foreground" />
               </Button>
               <Input
+                ref={inputRef}
                 className="flex-1 text-center"
                 placeholder="ketik di sini..."
                 value={input}
@@ -526,5 +640,16 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 30,
+  },
+  progressBadge: {
+    position: 'absolute',
+    top: 5,
+    left: '50%',
+    transform: [{ translateX: -25 }],
+    zIndex: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
 });

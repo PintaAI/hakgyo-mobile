@@ -2,13 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { View, Alert, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Background } from '@/components/ui/background';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+
+import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, AlertCircle } from 'lucide-react-native';
 import { soalApi, type Soal } from 'hakgyo-expo-sdk';
 import { Quiz, type QuizResult } from '@/components/soal/quiz';
+import { QuizSkeleton } from '@/components/soal/quiz-skeleton';
 
 interface CollectionData {
   id: number;
@@ -41,6 +44,7 @@ export default function PracticeScreen() {
 
       // Fetch collection details
       const collectionResponse = await soalApi.getCollection(Number(id));
+      console.log('[Practice] getCollection response:', collectionResponse);
       if (collectionResponse.success && collectionResponse.data) {
         setCollection(collectionResponse.data as CollectionData);
       }
@@ -51,11 +55,12 @@ export default function PracticeScreen() {
         limit: 100,
         offset: 0,
       });
+      console.log('[Practice] listQuestions response:', JSON.stringify(questionsResponse, null, 2));
       if (questionsResponse.success && questionsResponse.data?.data) {
         setSoals(questionsResponse.data.data);
       }
     } catch (err) {
-      console.error('Error fetching practice data:', err);
+      console.error('[Practice] Error fetching practice data:', err);
       setError('Gagal memuat data latihan');
     } finally {
       setLoading(false);
@@ -126,11 +131,29 @@ export default function PracticeScreen() {
     }
   };
 
+  // Header skeleton component
+  const HeaderSkeleton = () => (
+    <View className="px-5 pt-4 pb-2 border-b border-border/50">
+      <View className="flex-row items-center gap-3">
+        <Skeleton className="w-8 h-8 rounded-full" />
+        <Skeleton className="h-5 w-40 flex-1" />
+        <Skeleton className="h-4 w-12" />
+      </View>
+    </View>
+  );
+
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-        <View className="flex-1 items-center justify-center">
-          <LoadingSpinner />
+        <Background />
+        <View className="flex-1">
+          {/* Header skeleton */}
+          <HeaderSkeleton />
+
+          {/* Content skeleton */}
+          <ScrollView className="flex-1 px-5 py-4">
+            <QuizSkeleton tryoutMode={false} />
+          </ScrollView>
         </View>
       </SafeAreaView>
     );
@@ -139,6 +162,7 @@ export default function PracticeScreen() {
   if (error) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <Background />
         <View className="flex-1 items-center justify-center px-6">
           <Icon as={AlertCircle} size={48} className="text-destructive mb-4" />
           <Text className="text-lg font-semibold mb-2">Terjadi Kesalahan</Text>
@@ -154,6 +178,7 @@ export default function PracticeScreen() {
   if (soals.length === 0) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <Background />
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-lg font-semibold mb-2">Tidak Ada Soal</Text>
           <Text className="text-center text-muted-foreground mb-6">Koleksi latihan ini kosong.</Text>
@@ -167,6 +192,7 @@ export default function PracticeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <Background />
       {/* Header with back button */}
       <View className="px-5 pt-4 pb-2 border-b border-border/50">
         <View className="flex-row items-center gap-3">

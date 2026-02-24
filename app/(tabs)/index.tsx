@@ -4,6 +4,7 @@ import { Text } from '@/components/ui/text';
 import { BookOpen, ClipboardList } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Image, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Background } from '@/components/ui/background';
 import { useAuth } from 'hakgyo-expo-sdk';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DailyVocabulary } from '@/components/daily-vocabulary';
@@ -76,6 +77,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <Background />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

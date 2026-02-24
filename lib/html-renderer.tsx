@@ -55,6 +55,54 @@ function stripWrapperTags(html: string): string {
 }
 
 /**
+ * Preprocess HTML: replace complex audio embed divs with a simple <audio> tag.
+ * The DB stores: <div data-type="audio" data-src="..." ...>...deeply nested divs + <audio>...</div>
+ * We find the outer div using depth counting and replace it entirely.
+ */
+function preprocessAudioEmbeds(html: string): string {
+  const openAudioDiv = /<div([^>]*data-type="audio"[^>]*)>/i;
+  const match = openAudioDiv.exec(html);
+  if (!match) return html;
+
+  const attrStr = match[1];
+  const getAttr = (name: string) => {
+    const m = attrStr.match(new RegExp(`${name}="([^"]*)"`));
+    return m ? m[1] : '';
+  };
+  const src = getAttr('data-src');
+  const filename = getAttr('data-filename');
+  const duration = getAttr('data-duration');
+  if (!src) return html;
+
+  // Walk from match index, count depth to find the matching closing </div>
+  const start = match.index;
+  let depth = 0;
+  let i = start;
+  while (i < html.length) {
+    if (html[i] === '<') {
+      if (html.substring(i).match(/^<div/i)) {
+        depth++;
+        i += 4;
+      } else if (html.substring(i).match(/^<\/div>/i)) {
+        depth--;
+        if (depth === 0) {
+          const end = i + 6; // length of </div>
+          const replacement = `<audio src="${src}" data-filename="${filename}" data-duration="${duration}"></audio>`;
+          return html.substring(0, start) + replacement + html.substring(end);
+        }
+        i += 6;
+      } else {
+        i++;
+      }
+    } else {
+      i++;
+    }
+  }
+
+  return html;
+}
+
+/**
  * AudioPlayer component for rendering HTML audio elements
  */
 function AudioPlayer({ src, filename, duration }: { src: string; filename?: string; duration?: string }) {
@@ -81,38 +129,25 @@ function AudioPlayer({ src, filename, duration }: { src: string; filename?: stri
   };
 
   return (
-    <View className="border rounded-lg overflow-hidden bg-card my-4">
-      <View className="bg-muted/50 px-4 py-3 border-b">
-        <View className="flex-row items-center gap-2">
-          <Text className="text-2xl">🎵</Text>
-          <View className="flex-1">
-            <Text className="font-medium text-sm text-foreground">{filename || 'Audio'}</Text>
-            {duration && <Text className="text-xs text-muted-foreground">{duration}</Text>}
-          </View>
-        </View>
-      </View>
-      <View className="p-4 flex-row items-center gap-3">
-        <Button
-          onPress={togglePlay}
-          className="rounded-full w-12 h-12 items-center justify-center p-0"
-          disabled={!status.isLoaded}
-        >
-          <Icon as={status.playing ? Pause : Play} size={20} className="text-primary-foreground" />
-        </Button>
-        <View className="flex-1">
-          <Text className="text-xs text-muted-foreground">
-            {status.isLoaded ? formatTime(status.currentTime) : 'Loading...'} / {status.isLoaded ? formatTime(status.duration) : '--:--'}
-          </Text>
-        </View>
-        <Button
-          onPress={replay}
-          variant="ghost"
-          className="rounded-full w-10 h-10 items-center justify-center p-0"
-          disabled={!status.isLoaded}
-        >
-          <Icon as={RotateCcw} size={16} className="text-foreground" />
-        </Button>
-      </View>
+    <View className="border rounded-lg overflow-hidden bg-card my-2 flex-row items-center px-3 py-2 gap-3">
+      <Button
+        onPress={togglePlay}
+        className="rounded-full w-10 h-10 items-center justify-center p-0 shrink-0"
+        disabled={!status.isLoaded}
+      >
+        <Icon as={status.playing ? Pause : Play} size={18} className="text-primary-foreground" />
+      </Button>
+      <Text className="text-xs text-muted-foreground flex-1">
+        {status.isLoaded ? formatTime(status.currentTime) : 'Loading...'} / {status.isLoaded ? formatTime(status.duration) : '--:--'}
+      </Text>
+      <Button
+        onPress={replay}
+        variant="ghost"
+        className="rounded-full w-9 h-9 items-center justify-center p-0 shrink-0"
+        disabled={!status.isLoaded}
+      >
+        <Icon as={RotateCcw} size={14} className="text-foreground" />
+      </Button>
     </View>
   );
 }
@@ -122,7 +157,8 @@ function AudioPlayer({ src, filename, duration }: { src: string; filename?: stri
  * Uses regex-based parsing for simplicity
  */
 function parseHtml(html: string): HtmlElement[] {
-  const stripped = stripWrapperTags(html);
+  const preprocessed = preprocessAudioEmbeds(html);
+  const stripped = stripWrapperTags(preprocessed);
   const elements: HtmlElement[] = [];
 
   // Check if it's plain text (no HTML tags)

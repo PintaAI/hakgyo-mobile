@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Background } from '@/components/ui/background';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -69,6 +70,7 @@ export default function TryoutListScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <Background />
       <View className="flex-1">
         {/* Header */}
         <View className="px-5 pt-4 pb-2">

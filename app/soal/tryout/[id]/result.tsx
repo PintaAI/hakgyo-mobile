@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Alert } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Background } from '@/components/ui/background';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -128,6 +129,7 @@ export default function TryoutResultScreen() {
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <Background />
         <View className="flex-1 items-center justify-center">
           <LoadingSpinner />
         </View>
@@ -138,6 +140,7 @@ export default function TryoutResultScreen() {
   if (error) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <Background />
         <View className="flex-1 items-center justify-center px-6">
           <Icon as={XCircle} size={48} className="text-destructive mb-4" />
           <Text className="text-lg font-semibold mb-2">Terjadi Kesalahan</Text>
@@ -153,6 +156,7 @@ export default function TryoutResultScreen() {
   if (!result || !tryout) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <Background />
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-lg font-semibold mb-2">Hasil Tidak Ditemukan</Text>
           <Text className="text-center text-muted-foreground mb-6">
@@ -170,12 +174,15 @@ export default function TryoutResultScreen() {
   const progressValue = scorePercentage / 100;
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="flex-1">
+    <>
+      <Stack.Screen options={{ gestureEnabled: false }} />
+      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <Background />
+        <View className="flex-1">
         {/* Header */}
         <View className="px-5 pt-4 pb-3 border-b border-border/50">
           <View className="flex-row items-center gap-3">
-            <Button variant="ghost" size="icon" onPress={() => router.back()} className="w-8 h-8">
+            <Button variant="ghost" size="icon" onPress={() => router.replace('/soal/tryout')} className="w-8 h-8">
               <Icon as={ArrowLeft} size={20} className="text-foreground" />
             </Button>
             <View className="flex-1">
@@ -284,51 +291,20 @@ export default function TryoutResultScreen() {
             </Card>
           )}
 
-          {/* Answer Breakdown */}
-          {answers.length > 0 && (
-            <Card className="mb-4">
-              <CardContent className="p-4">
-                <Text className="text-base font-semibold mb-3">Rincian Jawaban</Text>
-                <View className="gap-2">
-                  {answers.map((answer, index) => (
-                    <View
-                      key={answer.id}
-                      className={`flex-row items-center justify-between p-3 rounded-lg border ${
-                        answer.isCorrect
-                          ? 'border-green-500/30 bg-green-500/5'
-                          : 'border-red-500/30 bg-red-500/5'
-                      }`}
-                    >
-                      <View className="flex-row items-center gap-3">
-                        <View
-                          className={`w-8 h-8 rounded-full items-center justify-center ${
-                            answer.isCorrect ? 'bg-green-500/20' : 'bg-red-500/20'
-                          }`}
-                        >
-                          <Text className="text-sm font-bold">{index + 1}</Text>
-                        </View>
-                        <Text className="text-sm">Soal {answer.soalId}</Text>
-                      </View>
-                      <Icon
-                        as={answer.isCorrect ? CheckCircle : XCircle}
-                        size={20}
-                        className={answer.isCorrect ? 'text-green-500' : 'text-red-500'}
-                      />
-                    </View>
-                  ))}
-                </View>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Action Buttons */}
           <View className="gap-3 mb-6">
-            <Button onPress={() => router.push({ pathname: '/soal/tryout/[id]', params: { id } })}>
-              <Text className="text-primary-foreground">Ulangi Tryout</Text>
-            </Button>
+            {/* Only show "Ulangi Tryout" if maxAttempts > 1 and attemptCount < maxAttempts */}
+            {participant &&
+              participant.tryout?.maxAttempts &&
+              participant.tryout.maxAttempts > 1 &&
+              (participant.attemptCount ?? 0) < participant.tryout.maxAttempts && (
+                <Button onPress={() => router.push({ pathname: '/soal/tryout/[id]', params: { id } })}>
+                  <Text className="text-primary-foreground">Ulangi Tryout</Text>
+                </Button>
+              )}
             <Button
               variant="outline"
-              onPress={() => router.replace('/soal/tryout/index')}
+              onPress={() => router.replace('/soal/tryout')}
               className="flex-row items-center justify-center gap-2"
             >
               <Text>Lihat Tryout Lainnya</Text>
@@ -338,5 +314,6 @@ export default function TryoutResultScreen() {
         </ScrollView>
       </View>
     </SafeAreaView>
+    </>
   );
 }

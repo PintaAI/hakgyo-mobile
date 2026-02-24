@@ -19,6 +19,7 @@ export interface QuizProps {
   onQuestionChange?: (questionIndex: number) => void;
   loopOnComplete?: boolean;
   showProgress?: boolean;
+  tryoutMode?: boolean; // Tryout mode: enables timer, progress bar, submit button
   className?: string;
 }
 
@@ -38,6 +39,7 @@ export function Quiz({
   onQuestionChange,
   loopOnComplete = true,
   showProgress = true,
+  tryoutMode = false,
   className = '',
 }: QuizProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -83,16 +85,51 @@ export function Quiz({
     const updatedResults = [...results, newResult];
     setResults(updatedResults);
 
+    console.log('[Quiz] Answer submitted:', {
+      questionIndex: currentQuestion,
+      questionId: question.id,
+      selectedOption: selectedOpsi?.opsiText,
+      isCorrect,
+    });
+
     // Callbacks
     onAnswer?.(currentQuestion, index, isCorrect);
 
     // Check if quiz is complete
     if (currentQuestion === questions.length - 1) {
+      console.log('[Quiz] Quiz complete. Results:', updatedResults);
       onQuizComplete?.(updatedResults);
     }
   };
 
+  // Tryout mode: handle answer change (allows changing selection before next)
+  const handleTryoutAnswerChange = (index: number) => {
+    setSelectedAnswerIndex(index);
+  };
+
   const handleNext = () => {
+    // In tryout mode, record the answer and call onAnswer before moving
+    if (tryoutMode && selectedAnswerIndex !== null) {
+      const selectedOpsi = question.opsis[selectedAnswerIndex];
+      const isCorrect = selectedOpsi?.isCorrect ?? false;
+      const newResult = {
+        questionIndex: currentQuestion,
+        questionId: question.id,
+        selectedAnswerIndex,
+        isCorrect,
+      };
+      const updatedResults = [...results, newResult];
+      setResults(updatedResults);
+      onAnswer?.(currentQuestion, selectedAnswerIndex, isCorrect);
+
+      // If last question in tryout mode → submit
+      if (currentQuestion === questions.length - 1) {
+        console.log('[Quiz][Tryout] Kumpulkan pressed. Results:', updatedResults);
+        onQuizComplete?.(updatedResults);
+        return;
+      }
+    }
+
     if (currentQuestion < questions.length - 1) {
       const nextIndex = currentQuestion + 1;
       setCurrentQuestion(nextIndex);
@@ -107,6 +144,11 @@ export function Quiz({
       setResults([]);
       onQuestionChange?.(0);
     }
+  };
+
+  const handleTryoutSubmit = () => {
+    // Submit all answers, including unanswered questions
+    onQuizComplete?.(results);
   };
 
   const handleRetry = () => {
@@ -131,6 +173,11 @@ export function Quiz({
           {showProgress && (
             <Badge variant="secondary">
               <Text>{currentQuestion + 1}/{questions.length}</Text>
+            </Badge>
+          )}
+          {tryoutMode && (
+            <Badge variant="destructive">
+              <Text>Tryout</Text>
             </Badge>
           )}
         </View>
@@ -160,9 +207,17 @@ export function Quiz({
                     ? 'default'
                     : 'outline'
                 }
-                onPress={() => !showResult && handleAnswer(index)}
+                onPress={() => {
+                  if (!showResult) {
+                    if (tryoutMode) {
+                      handleTryoutAnswerChange(index);
+                    } else {
+                      handleAnswer(index);
+                    }
+                  }
+                }}
                 className="justify-start h-auto min-h-10 py-3"
-                disabled={showResult}
+                disabled={showResult && !tryoutMode}
               >
                 <View className="flex-row items-center gap-3 w-full">
                   <View className="w-6 h-6 rounded-full bg-primary/20 items-center justify-center shrink-0">
@@ -183,8 +238,20 @@ export function Quiz({
           })}
         </View>
 
-        {/* Result Section */}
-        {showResult && (
+        {/* Tryout mode: show Next/Submit button when answer is selected */}
+        {tryoutMode && selectedAnswerIndex !== null && (
+          <View className="flex-row justify-end">
+            <Button size="sm" onPress={handleNext}>
+              <Text className="text-primary-foreground">
+                {isLastQuestion ? 'Kumpulkan' : 'Lanjut'}
+              </Text>
+              <Icon as={ArrowRight} size={16} className="text-primary-foreground" />
+            </Button>
+          </View>
+        )}
+
+        {/* Result Section (practice mode only) */}
+        {showResult && !tryoutMode && (
           <View className="gap-3">
             {!isCorrect && question.explanation && (
               <View className="bg-muted/50 rounded-lg p-3 border border-border">
@@ -203,7 +270,16 @@ export function Quiz({
                   {isCorrect ? 'Benar!' : 'Salah!'}
                 </Text>
               </View>
-              {loopOnComplete ? (
+              {tryoutMode ? (
+                // Tryout mode: Show "Lanjut" button on all questions (not just last)
+                <Button size="sm" onPress={handleNext}>
+                  <Text className="text-primary-foreground">
+                    {isLastQuestion ? 'Kumpulkan' : 'Lanjut'}
+                  </Text>
+                  <Icon as={ArrowRight} size={16} className="text-primary-foreground" />
+                </Button>
+              ) : loopOnComplete ? (
+                // Practice mode: Show retry/next buttons
                 <Button size="sm" onPress={handleNext}>
                   <Text className="text-primary-foreground">
                     {isLastQuestion ? 'Ulangi' : 'Lanjut'}

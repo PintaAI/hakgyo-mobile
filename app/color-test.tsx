@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Background } from '@/components/ui';
 
 type ColorItem = {
   name: string;
@@ -91,6 +92,7 @@ function ColorSwatch({ color }: { color: ColorItem }) {
 export default function ColorTestScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <Background/>
       <ScrollView className="flex-1" contentContainerClassName="p-6 gap-6">
         {/* Header */}
         <View className="flex-row items-center gap-3">

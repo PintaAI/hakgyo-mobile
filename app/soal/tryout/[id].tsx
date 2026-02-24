@@ -2,13 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, ScrollView, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Background } from '@/components/ui/background';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Clock, CheckCircle, AlertCircle } from 'lucide-react-native';
 import { tryoutApi, soalApi, type Tryout, type TryoutParticipant, type Soal, type Opsi } from 'hakgyo-expo-sdk';
+import { Quiz, type QuizResult } from '@/components/soal/quiz';
+import { QuizSkeleton } from '@/components/soal/quiz-skeleton';
 
 interface Answer {
   soalId: number;
@@ -16,8 +19,8 @@ interface Answer {
 }
 
 export default function TryoutScreen() {
-const { id } = useLocalSearchParams<{ id: string }>();
-const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [tryout, setTryout] = useState<Tryout | null>(null);
@@ -25,11 +28,10 @@ const router = useRouter();
   const [participant, setParticipant] = useState<TryoutParticipant | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(new Set());
-  const [answers, setAnswers] = useState<Answer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
 
   useEffect(() => {
     fetchSoalData();
@@ -73,25 +75,25 @@ const router = useRouter();
       setLoading(true);
       setError(null);
 
-      console.log('Fetching tryout details for id:', id);
+      console.log('[Tryout] Fetching details for id:', id);
       const parsedId = Number(id);
-      console.log('Parsed id:', parsedId, 'isNaN:', isNaN(parsedId));
+      console.log('[Tryout] Parsed id:', parsedId, 'isNaN:', isNaN(parsedId));
 
       // Fetch tryout details
       const tryoutResponse = await tryoutApi.get(parsedId);
-      console.log('Tryout API Response:', tryoutResponse);
+      console.log('[Tryout] API Response:', JSON.stringify(tryoutResponse, null, 2));
 
       if (tryoutResponse.success && tryoutResponse.data) {
-        // FIX: SDK double-wraps the response - actual Tryout data is at .data.data
+        // FIX: SDK double-wraps as response - actual Tryout data is at .data.data
         const rawTryoutData = tryoutResponse.data as any;
         const tryoutData: Tryout = rawTryoutData?.data ?? rawTryoutData;
-        console.log('Resolved tryout data:', tryoutData);
-        console.log('koleksiSoalId:', tryoutData.koleksiSoalId);
-        console.log('Embedded soals count:', tryoutData.koleksiSoal?.soals?.length ?? 0);
+        console.log('[Tryout] Resolved tryout data:', tryoutData);
+        console.log('[Tryout] koleksiSoalId:', tryoutData.koleksiSoalId);
+        console.log('[Tryout] Embedded soals count:', tryoutData.koleksiSoal?.soals?.length ?? 0);
 
         setTryout(tryoutData);
 
-        // FIX: Use the embedded soals from the tryout response directly.
+        // FIX: Use embedded soals from tryout response directly.
         // The backend already eagerly loads koleksiSoal.soals in GET /api/tryout/[id],
         // so no separate API call is needed. This avoids the broken koleksiSoalId filter.
         if (tryoutData.koleksiSoal?.soals && tryoutData.koleksiSoal.soals.length > 0) {
@@ -103,12 +105,13 @@ const router = useRouter();
             limit: 100,
             offset: 0,
           });
+          console.log('[Tryout] listQuestions response:', JSON.stringify(questionsResponse, null, 2));
           if (questionsResponse.success && questionsResponse.data?.data) {
             setSoals(questionsResponse.data.data);
           }
         }
 
-        // FIX: Use tryoutData.duration (minutes) to count down the student's personal time
+        // FIX: Use tryoutData.duration (minutes) to count down as student's personal time
         if (tryoutData.duration) {
           startTimer(tryoutData.duration);
         }
@@ -116,125 +119,110 @@ const router = useRouter();
 
       // Participate in tryout
       const participantResponse = await tryoutApi.participate(Number(id));
+      console.log('[Tryout] Participate response:', JSON.stringify(participantResponse, null, 2));
       if (participantResponse.success && participantResponse.data) {
-        // FIX: SDK double-wraps - actual participant is at .data.data
+        // FIX: SDK double-wraps as response - actual participant is at .data.data
         const rawParticipant = participantResponse.data as any;
         const participantData = rawParticipant?.data ?? rawParticipant;
+        console.log('[Tryout] Resolved participant data:', participantData);
         setParticipant(participantData);
+
+        // Check if participant already submitted - navigate directly to results
+        if (participantData.status === 'SUBMITTED') {
+          console.log('[Tryout] Participant already submitted, navigating to results');
+          router.push(`/soal/tryout/${id}/result`);
+          return;
+        }
       }
     } catch (err) {
-      console.error('Error fetching tryout data:', err);
+      console.error('[Tryout] Error fetching tryout data:', err);
       setError('Gagal memuat data tryout');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAnswerSelect = (answerId: number) => {
-    setSelectedAnswer(answerId);
+  const handleAnswer = (questionIndex: number, answerIndex: number, isCorrect: boolean) => {
+    setQuizResults((prev) => [
+      ...prev,
+      { questionIndex, questionId: soals[questionIndex].id, selectedAnswerIndex: answerIndex, isCorrect }
+    ]);
   };
 
-  const handleNextQuestion = () => {
-    if (selectedAnswer !== null) {
-      const currentSoal = soals[currentQuestionIndex];
-      const newAnswers = [...answers];
-      const existingIndex = newAnswers.findIndex((a) => a.soalId === currentSoal.id);
-      
-      if (existingIndex >= 0) {
-        newAnswers[existingIndex] = { soalId: currentSoal.id, opsiId: selectedAnswer };
-      } else {
-        newAnswers.push({ soalId: currentSoal.id, opsiId: selectedAnswer });
+  const handleQuizComplete = async (results: QuizResult[]) => {
+    console.log('[Tryout] Quiz complete with results:', results);
+    
+    try {
+      // Convert QuizResult (selectedAnswerIndex) → { soalId, opsiId } format required by API
+      const answers = results
+        .filter((r) => soals[r.questionIndex]?.opsis[r.selectedAnswerIndex])
+        .map((r) => ({
+          soalId: soals[r.questionIndex].id,
+          opsiId: soals[r.questionIndex].opsis[r.selectedAnswerIndex].id,
+        }));
+
+      console.log('[Tryout] Submitting answers:', JSON.stringify(answers, null, 2));
+
+      const submitResponse = await tryoutApi.submit(Number(id), answers);
+      console.log('[Tryout] Submit response:', JSON.stringify(submitResponse, null, 2));
+
+      if (!submitResponse.success) {
+        Alert.alert('Error', 'Gagal mengumpulkan jawaban. Silakan coba lagi.');
+        return;
       }
-      setAnswers(newAnswers);
-      setAnsweredQuestions((prev) => new Set(prev).add(currentQuestionIndex));
+    } catch (err) {
+      console.error('[Tryout] Error submitting answers:', err);
+      Alert.alert('Error', 'Gagal mengumpulkan jawaban');
+      return;
     }
 
-    if (currentQuestionIndex < soals.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-      setSelectedAnswer(null);
-    }
-  };
-
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-      const prevQuestion = soals[currentQuestionIndex - 1];
-      const existingAnswer = answers.find((a) => a.soalId === prevQuestion.id);
-      setSelectedAnswer(existingAnswer?.opsiId || null);
-    }
+    // Navigate to results screen after successful submission
+    router.push(`/soal/tryout/${id}/result`);
   };
 
   const handleSubmitTryout = () => {
-    if (answeredQuestions.size < soals.length) {
-      Alert.alert(
-        'Konfirmasi',
-        `Anda baru menjawab ${answeredQuestions.size} dari ${soals.length} soal. Yakin ingin mengumpulkan?`,
-        [
-          {
-            text: 'Batal',
-            style: 'cancel',
-          },
-          {
-            text: 'Kumpulkan',
-            onPress: async () => {
-              await submitAnswers();
-            },
-          },
-        ]
-      );
-    } else {
-      submitAnswers();
-    }
-  };
-
-  const submitAnswers = async () => {
-    try {
-      const result = await tryoutApi.submit(Number(id), answers);
-      if (result.success && result.data) {
-        // Navigate to results screen
-        router.push(`/soal/tryout/${id}/result`);
-      }
-    } catch (err) {
-      console.error('Error submitting answers:', err);
-      Alert.alert('Error', 'Gagal mengumpulkan jawaban');
-    }
+    // Submit all answers, including unanswered questions
+    handleQuizComplete(quizResults);
   };
 
   const handleBack = () => {
-    if (answeredQuestions.size > 0) {
-      Alert.alert(
-        'Konfirmasi',
-        'Apakah Anda yakin ingin keluar? Progress Anda akan hilang.',
-        [
-          {
-            text: 'Batal',
-            style: 'cancel',
-          },
-          {
-            text: 'Keluar',
-            style: 'destructive',
-            onPress: () => {
-              if (timerRef.current) {
-                clearInterval(timerRef.current);
-              }
-              router.back();
-            },
-          },
-        ]
-      );
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      router.back();
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
     }
+    router.back();
   };
+
+  // Header skeleton component
+  const HeaderSkeleton = () => (
+    <View className="px-5 pt-4 pb-3 border-b border-border/50">
+      <View className="flex-row items-center gap-3">
+        <Skeleton className="w-8 h-8 rounded-full" />
+        <View className="flex-1">
+          <Skeleton className="h-5 w-32 mb-2" />
+          <Skeleton className="h-3 w-24" />
+        </View>
+        <Skeleton className="h-7 w-16 rounded-full" />
+      </View>
+    </View>
+  );
 
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-        <View className="flex-1 items-center justify-center">
-          <LoadingSpinner />
+        <Background />
+        <View className="flex-1">
+          {/* Header skeleton */}
+          <HeaderSkeleton />
+
+          {/* Progress bar skeleton */}
+          <View className="h-1 bg-border/50">
+            <Skeleton className="h-full w-1/3" />
+          </View>
+
+          {/* Content skeleton */}
+          <ScrollView className="flex-1 px-5 py-4">
+            <QuizSkeleton tryoutMode={true} />
+          </ScrollView>
         </View>
       </SafeAreaView>
     );
@@ -243,6 +231,7 @@ const router = useRouter();
   if (error) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <Background />
         <View className="flex-1 items-center justify-center px-6">
           <Icon as={AlertCircle} size={48} className="text-destructive mb-4" />
           <Text className="text-lg font-semibold mb-2">Terjadi Kesalahan</Text>
@@ -258,6 +247,7 @@ const router = useRouter();
   if (soals.length === 0) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <Background />
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-lg font-semibold mb-2">Tidak Ada Soal</Text>
           <Text className="text-center text-muted-foreground mb-6">Koleksi tryout ini kosong.</Text>
@@ -271,11 +261,12 @@ const router = useRouter();
 
   const currentSoal = soals[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / soals.length) * 100;
-  const isAnswered = answeredQuestions.has(currentQuestionIndex);
+  const isAnswered = quizResults.some((r) => r.questionIndex === currentQuestionIndex);
   const timeColor = timeLeft < 300 ? 'text-destructive' : 'text-primary';
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <Background />
       <View className="flex-1">
         {/* Header */}
         <View className="px-5 pt-4 pb-3 border-b border-border/50">
@@ -307,85 +298,18 @@ const router = useRouter();
 
         {/* Content */}
         <ScrollView className="flex-1 px-5 py-4">
-          <Card>
-            <CardContent className="p-4 gap-4">
-              {/* Question */}
-              <View>
-                <Text className="text-sm font-medium text-muted-foreground mb-2">
-                  Pertanyaan {currentQuestionIndex + 1}
-                </Text>
-                <Text className="text-base leading-relaxed">{currentSoal.pertanyaan}</Text>
-              </View>
-
-              {/* Options */}
-              <View className="gap-2">
-                {currentSoal.opsis.map((option) => {
-                  const isSelected = selectedAnswer === option.id;
-                  const isPreviouslyAnswered = answers.some(
-                    (a) => a.soalId === currentSoal.id && a.opsiId === option.id
-                  );
-
-                  return (
-                    <Button
-                      key={option.id}
-                      variant="outline"
-                      onPress={() => handleAnswerSelect(option.id)}
-                      className={`
-                        justify-start h-auto py-3 px-4 border-2
-                        ${isSelected ? 'border-primary bg-primary/5' : ''}
-                        ${isPreviouslyAnswered && !isSelected ? 'border-muted-foreground/30 bg-muted/20' : ''}
-                      `}
-                    >
-                      <View className="flex-row items-start gap-3 flex-1">
-                        <View
-                          className={`
-                            w-6 h-6 rounded-full items-center justify-center border
-                            ${isSelected ? 'border-primary bg-primary' : 'border-border'}
-                            ${isPreviouslyAnswered && !isSelected ? 'border-muted-foreground/30' : ''}
-                          `}
-                        >
-                          {isSelected || isPreviouslyAnswered ? (
-                            <Icon
-                              as={CheckCircle}
-                              size={14}
-                              className={isSelected ? 'text-white' : 'text-muted-foreground'}
-                            />
-                          ) : (
-                            <Text className="text-xs font-medium">{option.order + 1}</Text>
-                          )}
-                        </View>
-                        <Text className="flex-1 text-sm leading-relaxed">{option.opsiText}</Text>
-                      </View>
-                    </Button>
-                  );
-                })}
-              </View>
-            </CardContent>
-          </Card>
+          <Quiz
+            questions={soals}
+            title={tryout?.nama || 'Tryout'}
+            loading={false}
+            onAnswer={handleAnswer}
+            onQuizComplete={handleQuizComplete}
+            onQuestionChange={setCurrentQuestionIndex}
+            loopOnComplete={false}
+            showProgress={true}
+            tryoutMode={true}
+          />
         </ScrollView>
-
-        {/* Footer */}
-        <View className="px-5 py-4 border-t border-border/50 bg-background">
-          <View className="flex-row gap-3">
-            <Button
-              variant="outline"
-              onPress={handlePreviousQuestion}
-              disabled={currentQuestionIndex === 0}
-              className="flex-1"
-            >
-              <Text>Sebelumnya</Text>
-            </Button>
-            {currentQuestionIndex === soals.length - 1 ? (
-              <Button onPress={handleSubmitTryout} className="flex-1">
-                <Text>Kumpulkan</Text>
-              </Button>
-            ) : (
-              <Button onPress={handleNextQuestion} className="flex-1">
-                <Text>Selanjutnya</Text>
-              </Button>
-            )}
-          </View>
-        </View>
       </View>
     </SafeAreaView>
   );

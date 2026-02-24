@@ -17,6 +17,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { UpdateChecker } from '@/components/update-checker';
 import { SessionChecker } from '@/components/session-checker';
+import { Background } from '@/components/ui/background';
+import { View, StyleSheet } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 
 // This is the default configuration
@@ -40,18 +42,30 @@ export default function RootLayout() {
   const { colorScheme } = useColorScheme();
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-          <AuthProvider>
-            <UpdateChecker />
-            <SessionChecker />
-            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-            <Stack screenOptions={{ headerShown: false }} />
-            <PortalHost />
-          </AuthProvider>
-        </ThemeProvider>
-      </BottomSheetModalProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <View style={styles.container}>
+        <BottomSheetModalProvider>
+          <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
+            <AuthProvider>
+              <UpdateChecker />
+              <SessionChecker />
+              <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+              <Stack screenOptions={{ headerShown: false }} />
+              <PortalHost />
+            </AuthProvider>
+          </ThemeProvider>
+        </BottomSheetModalProvider>
+      </View>
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  container: {
+    flex: 1,
+  },
+});
