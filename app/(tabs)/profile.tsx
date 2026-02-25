@@ -26,6 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Background } from '@/components/ui/background';
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { StreakReminderSettings } from '@/components/streak-reminder-settings';
 
 export default function ProfileScreen() {
   const { user } = useAuth();
@@ -185,6 +186,9 @@ export default function ProfileScreen() {
             </CardContent>
           </Card>
         </View>
+
+        {/* Daily Streak Reminder Settings */}
+        <StreakReminderSettings />
 
         {/* Joined Classes */}
         <Card className="border-0 bg-transparent">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { gamificationApi } from 'hakgyo-expo-sdk';
 import { useAuth } from 'hakgyo-expo-sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStreakReminderTime, rescheduleStreakReminderForTomorrow } from '@/lib/notifications';
 
 const DAILY_LOGIN_STORAGE_KEY = 'daily_login_last_date';
 
@@ -81,5 +82,21 @@ export function useDailyLogin() {
     setShowPopup(false);
   };
 
-  return { showPopup, dailyLoginData, dismissPopup };
+  /**
+   * Reschedule the streak reminder for tomorrow after daily login is processed
+   * This prevents the reminder from firing on the same day the user already logged in
+   */
+  const rescheduleReminderAfterLogin = async () => {
+    try {
+      const time = await getStreakReminderTime();
+      if (time) {
+        await rescheduleStreakReminderForTomorrow(time.hour, time.minute);
+        console.log('Streak reminder rescheduled for tomorrow after daily login');
+      }
+    } catch (error) {
+      console.error('Failed to reschedule streak reminder after daily login:', error);
+    }
+  };
+
+  return { showPopup, dailyLoginData, dismissPopup, rescheduleReminderAfterLogin };
 }
