@@ -38,10 +38,8 @@ export default function VocabScreen() {
       }
       setError(null);
       const response = await vocabularyApi.listSets({ page: 1, limit: 20 });
-      console.log('Vocab sets response:', response);
       if (response.success && response.data?.data) {
         // response.data is PaginatedResponse<VocabularySet>, response.data.data is VocabularySet[]
-        console.log('Vocab sets data:', response.data.data);
         setVocabSets(response.data.data);
       } else {
         setError(response.error || 'Failed to load vocabulary sets');
@@ -76,7 +74,7 @@ export default function VocabScreen() {
           setLearnedItemIds(learnedIds);
         }
       } catch (e) {
-        console.error('Error fetching learned items:', e);
+        // Silently fail - learned items are best-effort
       }
     }
   }, [selectedSetId]);
@@ -121,13 +119,11 @@ export default function VocabScreen() {
   }, [selectedSetId]);
 
   const handleAudioPress = useCallback(() => {
-    if (selectedItem) {
-      console.log('Play audio for:', selectedItem.korean);
-    }
-  }, [selectedItem]);
+    // Audio playback to be implemented
+  }, []);
 
   const handleGamePress = useCallback(() => {
-    console.log('game button clicked');
+    // Game functionality to be implemented
   }, []);
 
   const handleWebsitePress = useCallback(() => {
@@ -203,7 +199,7 @@ export default function VocabScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
           >
-            <View className={`p-4 gap-3 ${Platform.OS === 'android' ? 'pb-20' : ''}`}>
+            <View className={`p-4 gap-3 ${Platform.OS === 'android' ? 'pb-20' : 'pb-20'}`}>
               {vocabSets.map((set) => (
                 <VocabSet
                   key={set.id}

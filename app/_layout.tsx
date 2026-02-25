@@ -11,13 +11,13 @@ import { PortalHost } from '@rn-primitives/portal';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { initSDK, AuthProvider } from 'hakgyo-expo-sdk';
+import { usePushNotificationsWithBackend } from '@/lib/notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { UpdateChecker } from '@/components/update-checker';
 import { SessionChecker } from '@/components/session-checker';
-import { Background } from '@/components/ui/background';
 import { View, StyleSheet } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -40,6 +40,13 @@ export {
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
+  const { error } = usePushNotificationsWithBackend();
+
+  useEffect(() => {
+    if (error) {
+      console.error('❌ Notification error:', error);
+    }
+  }, [error]);
 
   return (
     <GestureHandlerRootView style={styles.root}>

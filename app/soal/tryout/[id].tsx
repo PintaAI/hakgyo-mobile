@@ -6,9 +6,8 @@ import { Background } from '@/components/ui/background';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Clock, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { ArrowLeft, Clock, CheckCircle, AlertCircle, CalendarX } from 'lucide-react-native';
 import { tryoutApi, soalApi, type Tryout, type TryoutParticipant, type Soal, type Opsi } from 'hakgyo-expo-sdk';
 import { Quiz, type QuizResult } from '@/components/soal/quiz';
 import { QuizSkeleton } from '@/components/soal/quiz-skeleton';
@@ -29,6 +28,7 @@ export default function TryoutScreen() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tryoutEnded, setTryoutEnded] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
@@ -135,8 +135,19 @@ export default function TryoutScreen() {
         }
       }
     } catch (err) {
-      console.error('[Tryout] Error fetching tryout data:', err);
-      setError('Gagal memuat data tryout');
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      
+      // Check if the error is specifically "Tryout has ended"
+      if (errorMessage.includes('Tryout has ended')) {
+        // This is an expected scenario - log as info since it's handled gracefully
+        console.info('[Tryout] Tryout has ended - showing ended state to user');
+        setTryoutEnded(true);
+        setError('Tryout telah berakhir');
+      } else {
+        // This is an unexpected error - log as error
+        console.error('[Tryout] Error fetching tryout data:', err);
+        setError('Gagal memuat data tryout');
+      }
     } finally {
       setLoading(false);
     }
@@ -205,6 +216,24 @@ export default function TryoutScreen() {
       </View>
     </View>
   );
+
+  if (tryoutEnded) {
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <Background />
+        <View className="flex-1 items-center justify-center px-6">
+          <Icon as={CalendarX} size={64} className="text-muted-foreground mb-4" />
+          <Text className="text-xl font-bold mb-2">Tryout Telah Berakhir</Text>
+          <Text className="text-center text-muted-foreground mb-6">
+            Maaf, tryout ini sudah tidak tersedia lagi. Silakan coba tryout lain yang masih aktif.
+          </Text>
+          <Button onPress={() => router.back()} variant="default" className="w-full">
+            <Text>Kembali ke Daftar Tryout</Text>
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (loading) {
     return (

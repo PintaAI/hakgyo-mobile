@@ -5,13 +5,14 @@ import { BookOpen, ClipboardList } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Image, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Background } from '@/components/ui/background';
-import { useAuth } from 'hakgyo-expo-sdk';
+import { useAuth, userApi, type Kelas } from 'hakgyo-expo-sdk';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DailyVocabulary } from '@/components/daily-vocabulary';
 import { DailySoal } from '@/components/daily-soal';
 import { useDailyLogin } from '@/hooks/use-daily-login';
 import { DailyLoginPopup } from '@/components/daily-login-popup';
 import { UserStats } from '@/components/user-stats';
+import { ActiveTryoutBanner } from '@/components/active-tryout-banner';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '@/components/ui/icon';
 import { GRADIENTS } from '@/lib/theme';
@@ -21,7 +22,7 @@ const LOGO = {
   dark: require('@/assets/images/splash-icon-dark.png'),
 };
 
-function HeaderTitle() {
+function HeaderTitle({ firstKelasTitle }: { firstKelasTitle?: string }) {
   const { colorScheme } = useColorScheme();
   return (
     <View className="flex-row items-center gap-2">
@@ -30,7 +31,9 @@ function HeaderTitle() {
         style={{ width: 24, height: 24 }}
         resizeMode="contain"
       />
-      <Text className="text-xl font-bold">Hakgyo</Text>
+      <Text className="text-xl font-bold">
+        Hakgyo {firstKelasTitle && `x ${firstKelasTitle}`}
+      </Text>
     </View>
   );
 }
@@ -41,6 +44,9 @@ export default function HomeScreen() {
   const { colorScheme } = useColorScheme();
   const dailyVocabInputFocusedRef = useRef(false);
   const [isDailyVocabInputFocused, setIsDailyVocabInputFocused] = useState(false);
+  
+  // Joined kelas state
+  const [joinedKelas, setJoinedKelas] = useState<Kelas[]>([]);
   
   // Optimistic stats state
   const [optimisticXP, setOptimisticXP] = useState(0);
@@ -61,6 +67,28 @@ export default function HomeScreen() {
       return newXP;
     });
   }, []);
+
+  // Fetch joined kelas
+  useEffect(() => {
+    const fetchJoinedKelas = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const response = await userApi.getClasses(user.id);
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const kelasData = Array.isArray(data)
+            ? data
+            : data?.data || [];
+          setJoinedKelas(kelasData);
+        }
+      } catch (error) {
+        console.error('Error fetching joined kelas:', error);
+      }
+    };
+
+    fetchJoinedKelas();
+  }, [user?.id]);
 
   // Reset optimistic state when user data changes (e.g., after refresh)
   useEffect(() => {
@@ -86,15 +114,18 @@ export default function HomeScreen() {
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName={`p-4 gap-6 ${Platform.OS === 'android' ? 'pb-24' : ''}`}
+          contentContainerClassName={`p-4 gap-6 ${Platform.OS === 'android' ? 'pb-24' : 'pb-24'}`}
           keyboardShouldPersistTaps="handled"
           
         >
         {/* Header */}
         <View className="flex-row justify-between items-center">
-          <HeaderTitle />
+          <HeaderTitle firstKelasTitle={joinedKelas.find(k => k.title.toLowerCase() !== 'hakgyo')?.title} />
           <ThemeToggle />
         </View>
+        
+        {/* Active Tryout Banner */}
+        <ActiveTryoutBanner />
 
         {/* Stats Section */}
         <UserStats

@@ -93,7 +93,7 @@ export default function SoalScreen() {
           }
         >
           {loading || refreshing ? (
-            <View className={`p-4 gap-3 ${Platform.OS === 'android' ? 'pb-20' : ''}`}>
+            <View className={`p-4 gap-3 ${Platform.OS === 'android' ? 'pb-20' : 'pb-20'}`}>
               {[...Array(3)].map((_, i) => (
                 <View key={i} className="border border-border/50 rounded-lg p-4 gap-3">
                   {/* Icon & Title Row */}

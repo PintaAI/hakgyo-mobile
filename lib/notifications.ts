@@ -1,6 +1,7 @@
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { notificationsApi } from 'hakgyo-expo-sdk';
@@ -133,6 +134,21 @@ export async function unregisterPushTokenFromBackend(tokenId: string): Promise<v
 }
 
 /**
+ * Clear the stored registered push token from AsyncStorage
+ * Use this when user logs out or when token needs to be refreshed
+ */
+export async function clearRegisteredPushToken(): Promise<void> {
+  try {
+    const STORAGE_KEY = '@hakgyo_registered_push_token';
+    await AsyncStorage.removeItem(STORAGE_KEY);
+    console.log('Stored push token cleared');
+  } catch (error) {
+    console.error('Failed to clear stored push token:', error);
+    throw error;
+  }
+}
+
+/**
  * Send a push notification to a specific ExpoPushToken
  * @param expoPushToken The token to send the notification to
  * @param title Notification title
@@ -242,30 +258,48 @@ export function usePushNotificationsWithBackend() {
   );
   const [error, setError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
+  const STORAGE_KEY = '@hakgyo_registered_push_token';
 
   useEffect(() => {
     let mounted = true;
 
     const setupNotifications = async () => {
       try {
-        // Register for push notifications
-        const token = await registerForPushNotificationsAsync();
+        // Check AsyncStorage FIRST for cached token before generating a new one
+        const cachedToken = await AsyncStorage.getItem(STORAGE_KEY);
         
         if (!mounted) return;
         
-        if (token) {
-          setExpoPushToken(token);
+        if (cachedToken) {
+          // Use cached token - no need to generate new one
+          console.log('Using cached push token:', cachedToken);
+          setExpoPushToken(cachedToken);
+          setIsRegistered(true);
+        } else {
+          // No cached token, generate and register a new one
+          console.log('No cached token found, generating new token...');
+          const token = await registerForPushNotificationsAsync();
           
-          // Register token with backend
-          try {
-            await registerPushTokenWithBackend(token);
-            if (mounted) {
-              setIsRegistered(true);
-            }
-          } catch (backendError) {
-            console.error('Failed to register token with backend:', backendError);
-            if (mounted) {
-              setError('Failed to register with backend');
+          if (!mounted) return;
+          
+          if (token) {
+            setExpoPushToken(token);
+            
+            // Register token with backend
+            try {
+              await registerPushTokenWithBackend(token);
+              
+              if (mounted) {
+                // Store the newly registered token
+                await AsyncStorage.setItem(STORAGE_KEY, token);
+                setIsRegistered(true);
+                console.log('Token registered and stored successfully');
+              }
+            } catch (backendError) {
+              console.error('Failed to register token with backend:', backendError);
+              if (mounted) {
+                setError('Failed to register with backend');
+              }
             }
           }
         }

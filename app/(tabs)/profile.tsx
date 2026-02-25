@@ -72,7 +72,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <Background />
-      <ScrollView className="flex-1" contentContainerClassName={`p-4 gap-6 ${Platform.OS === 'android' ? 'pb-24' : ''}`}>
+      <ScrollView className="flex-1" contentContainerClassName={`p-4 gap-6 ${Platform.OS === 'android' ? 'pb-24' : 'pb-24'}`}>
         {/* Profile Header */}
         <View className="items-center gap-4 pt-4">
           <LinearGradient

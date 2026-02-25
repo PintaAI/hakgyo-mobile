@@ -4,6 +4,7 @@ import { useAuth } from 'hakgyo-expo-sdk';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { DynamicColorIOS } from 'react-native';
 import { useColorScheme } from 'nativewind';
+import { THEME } from '@/lib/theme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -18,15 +19,15 @@ export default function TabLayout() {
     return <Redirect href="/auth" />;
   }
 
-  // Liquid glass colors that adapt to light/dark mode
+  // Use primary color from theme for tint color
   const tintColor = DynamicColorIOS({
-    dark: '#FFFFFF',
-    light: '#000000',
+    dark: THEME.dark.primary,
+    light: THEME.light.primary,
   });
 
   const textColor = DynamicColorIOS({
-    dark: '#FFFFFF',
-    light: '#000000',
+    dark: THEME.dark.primary,
+    light: THEME.light.primary,
   });
 
   return (
@@ -36,7 +37,7 @@ export default function TabLayout() {
         color: textColor,
       }}
     >
-      <NativeTabs.Trigger name="index">
+      <NativeTabs.Trigger name="index" >
         <Icon sf={{ default: 'house', selected: 'house.fill' }} />
         <Label>Home</Label>
       </NativeTabs.Trigger>

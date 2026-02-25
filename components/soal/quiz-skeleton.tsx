@@ -44,26 +44,6 @@ export function QuizSkeleton({ tryoutMode = false }: QuizSkeletonProps) {
             <Skeleton className="h-9 w-24 rounded-lg" />
           </View>
         )}
-
-        {/* Practice mode: Result section skeleton */}
-        {!tryoutMode && (
-          <View className="gap-3">
-            {/* Explanation skeleton */}
-            <View className="bg-muted/50 rounded-lg p-3 border border-border">
-              <Skeleton className="h-4 w-20 mb-2" />
-              <Skeleton className="h-4 w-full mb-1" />
-              <Skeleton className="h-4 w-3/4" />
-            </View>
-            {/* Result buttons skeleton */}
-            <View className="flex-row justify-between items-center">
-              <View className="flex-row items-center gap-2">
-                <Skeleton className="w-5 h-5 rounded-full" />
-                <Skeleton className="h-5 w-16" />
-              </View>
-              <Skeleton className="h-9 w-20 rounded-lg" />
-            </View>
-          </View>
-        )}
       </CardContent>
     </Card>
   );

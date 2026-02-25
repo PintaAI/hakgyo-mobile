@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ArrowRight, CheckCircle2, XCircle } from 'lucide-react-native';
+import { ArrowRight, CheckCircle2, XCircle, ArrowLeft, Eye } from 'lucide-react-native';
 import { HtmlRenderer } from '@/lib/html-renderer';
 import type { Soal, Opsi } from 'hakgyo-expo-sdk';
 
@@ -21,6 +21,9 @@ export interface QuizProps {
   showProgress?: boolean;
   tryoutMode?: boolean; // Tryout mode: enables timer, progress bar, submit button
   className?: string;
+  externalReviewMode?: boolean; // External trigger for review mode
+  initialResults?: QuizResult[]; // Initial results for review mode
+  onExitReview?: () => void; // Callback when exiting review mode
 }
 
 export interface QuizResult {
@@ -41,11 +44,27 @@ export function Quiz({
   showProgress = true,
   tryoutMode = false,
   className = '',
+  externalReviewMode = false,
+  initialResults,
+  onExitReview,
 }: QuizProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [results, setResults] = useState<QuizResult[]>([]);
+  const [results, setResults] = useState<QuizResult[]>(initialResults || []);
+  const [isReviewMode, setIsReviewMode] = useState(externalReviewMode);
+  const [reviewQuestionIndex, setReviewQuestionIndex] = useState(0);
+
+  // Handle external review mode trigger
+  React.useEffect(() => {
+    if (externalReviewMode && initialResults && initialResults.length > 0) {
+      setIsReviewMode(true);
+      setResults(initialResults);
+    } else if (!externalReviewMode) {
+      setIsReviewMode(false);
+      setReviewQuestionIndex(0);
+    }
+  }, [externalReviewMode, initialResults]);
 
   if (loading) {
     return <LoadingSpinner />;
@@ -156,13 +175,149 @@ export function Quiz({
     setSelectedAnswerIndex(null);
     setShowResult(false);
     setResults([]);
+    setIsReviewMode(false);
+    setReviewQuestionIndex(0);
     onQuestionChange?.(0);
+  };
+
+  const handleStartReview = () => {
+    setIsReviewMode(true);
+    setReviewQuestionIndex(0);
+  };
+
+  const handleExitReview = () => {
+    setIsReviewMode(false);
+    setReviewQuestionIndex(0);
+    setCurrentQuestion(0);
+    setSelectedAnswerIndex(null);
+    setShowResult(false);
+    setResults([]);
+    onQuestionChange?.(0);
+  };
+
+  const handleReviewNext = () => {
+    if (reviewQuestionIndex < questions.length - 1) {
+      setReviewQuestionIndex(reviewQuestionIndex + 1);
+    }
+  };
+
+  const handleReviewPrevious = () => {
+    if (reviewQuestionIndex > 0) {
+      setReviewQuestionIndex(reviewQuestionIndex - 1);
+    }
   };
 
   const selectedOpsi = selectedAnswerIndex !== null ? question.opsis[selectedAnswerIndex] : null;
   const isCorrect = selectedOpsi?.isCorrect ?? false;
   const correctOpsi = question.opsis.find((o) => o.isCorrect);
   const isLastQuestion = currentQuestion === questions.length - 1;
+
+  // Review mode: Get the result for the current review question
+  const reviewQuestion = questions[reviewQuestionIndex];
+  const reviewResult = results.find((r) => r.questionIndex === reviewQuestionIndex);
+  const reviewSelectedOpsi = reviewResult !== undefined ? reviewQuestion.opsis[reviewResult.selectedAnswerIndex] : null;
+  const reviewCorrectOpsi = reviewQuestion.opsis.find((o) => o.isCorrect);
+  const reviewIsCorrect = reviewResult?.isCorrect ?? false;
+
+  // Review mode UI
+  if (isReviewMode) {
+    return (
+      <Card className={`border-primary/20 ${className}`}>
+        <CardContent>
+          {/* Header */}
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-lg font-bold">Review Jawaban</Text>
+            <Badge variant="secondary">
+              <Text>{reviewQuestionIndex + 1}/{questions.length}</Text>
+            </Badge>
+          </View>
+
+          {/* Question */}
+          <View className="mb-4">
+            <HtmlRenderer html={reviewQuestion.pertanyaan} />
+          </View>
+
+          {/* Options - Show user's answer and correct answer */}
+          <View className="gap-2 mb-4">
+            {reviewQuestion.opsis.map((opsi, index) => {
+              const isSelected = reviewSelectedOpsi?.id === opsi.id;
+              const isCorrectOption = opsi.isCorrect;
+              const optionNumber = index + 1;
+
+              return (
+                <Button
+                  key={opsi.id}
+                  variant={
+                    isCorrectOption
+                      ? 'default'
+                      : isSelected
+                      ? 'destructive'
+                      : 'outline'
+                  }
+                  disabled
+                  className="justify-start h-auto min-h-10 py-3"
+                >
+                  <View className="flex-row items-center gap-3 w-full">
+                    <View className="w-6 h-6 rounded-full bg-primary/20 items-center justify-center shrink-0">
+                      <Text className="text-xs font-bold">{optionNumber}</Text>
+                    </View>
+                    <View className="flex-1">
+                      <HtmlRenderer html={opsi.opsiText} />
+                    </View>
+                    {isCorrectOption && (
+                      <Icon as={CheckCircle2} size={20} className="text-white mt-0.5 shrink-0" />
+                    )}
+                    {isSelected && !isCorrectOption && (
+                      <Icon as={XCircle} size={20} className="text-white mt-0.5 shrink-0" />
+                    )}
+                  </View>
+                </Button>
+              );
+            })}
+          </View>
+
+          {/* Explanation */}
+          {reviewQuestion.explanation && (
+            <View className="bg-muted/50 rounded-lg p-3 border border-border mb-4">
+              <Text className="text-sm font-semibold mb-1 text-foreground">Penjelasan:</Text>
+              <HtmlRenderer html={reviewQuestion.explanation} />
+            </View>
+          )}
+
+          {/* Result indicator with navigation */}
+          <View className="flex-row items-center justify-between mb-4">
+            <Button
+              size="icon"
+              variant="outline"
+              onPress={handleReviewPrevious}
+              disabled={reviewQuestionIndex === 0}
+              className="w-10 h-10"
+            >
+              <Icon as={ArrowLeft} size={20} className="text-foreground" />
+            </Button>
+            <View className="flex-row items-center gap-2">
+              <Icon
+                as={reviewIsCorrect ? CheckCircle2 : XCircle}
+                size={20}
+                className={reviewIsCorrect ? 'text-green-500' : 'text-red-500'}
+              />
+              <Text className={reviewIsCorrect ? 'text-green-500' : 'text-red-500'}>
+                {reviewIsCorrect ? 'Jawaban Benar!' : 'Jawaban Salah'}
+              </Text>
+            </View>
+            <Button
+              size="icon"
+              onPress={handleReviewNext}
+              disabled={reviewQuestionIndex === questions.length - 1}
+              className="w-10 h-10"
+            >
+              <Icon as={ArrowRight} size={20} className="text-primary-foreground" />
+            </Button>
+          </View>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className={`border-primary/20 ${className}`}>

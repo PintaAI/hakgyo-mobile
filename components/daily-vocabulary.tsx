@@ -1,259 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert as RNAlert, StyleSheet, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert as RNAlert, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Animated, {
-  Easing,
-  Extrapolation,
-  interpolate,
-  interpolateColor,
-  runOnJS,
-  useAnimatedStyle,
-  useDerivedValue,
-  useSharedValue,
-  withSequence,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { vocabularyApi, useAuth, VocabularyItem } from 'hakgyo-expo-sdk';
-
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { Alert } from '@/components/ui/alert';
-import { ArrowRight, Check, HelpCircle, RefreshCw, Send, Trophy } from 'lucide-react-native';
+import { ArrowRight, HelpCircle, RefreshCw, Send } from 'lucide-react-native';
 
-const SCREEN_WIDTH = 300;
-const SWIPE_THRESHOLD = 10;
-
-const formatPos = (pos?: string): string =>
-  pos?.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) ?? '';
-
-interface ActiveCardProps {
-  item: VocabularyItem;
-  isFlipped: boolean;
-  errorTrigger: number;
-  onSwipeComplete: () => void;
-  onTranslationChange: (value: number) => void;
-  index: number;
-}
-
-// Active card - handles swipe gestures and has its own animation state
-function ActiveCard({ item, isFlipped, errorTrigger, onSwipeComplete, onTranslationChange, index }: ActiveCardProps) {
-  const translationX = useSharedValue(0);
-  const rotateY = useSharedValue(0);
-  const shakeX = useSharedValue(0);
-  const errorColorProgress = useSharedValue(0);
-  const isExiting = useSharedValue(false);
-
-  // Flip animation - use timing with ease for natural card flip
-  useEffect(() => {
-    if (isFlipped) {
-      rotateY.value = withTiming(180, {
-        duration: 400,
-        easing: Easing.out(Easing.ease),
-      });
-    } else {
-      rotateY.value = withTiming(0, { duration: 300 });
-    }
-  }, [isFlipped, rotateY]);
-
-  // Error shake animation
-  useEffect(() => {
-    if (errorTrigger > 0) {
-      shakeX.value = withSequence(
-        withTiming(-12, { duration: 50 }),
-        withTiming(12, { duration: 50 }),
-        withTiming(-10, { duration: 50 }),
-        withTiming(10, { duration: 50 }),
-        withTiming(-6, { duration: 50 }),
-        withTiming(6, { duration: 50 }),
-        withTiming(0, { duration: 50 })
-      );
-      errorColorProgress.value = withSequence(
-        withTiming(1, { duration: 150 }),
-        withTiming(0, { duration: 400 })
-      );
-    }
-  }, [errorTrigger, shakeX, errorColorProgress]);
-
-  // Teasing swipe hint animation on mount - simulates a natural swipe gesture
-  // Only runs for the first card (index === 0)
-  useEffect(() => {
-    if (index !== 0) return;
-    const timer = setTimeout(() => {
-      if (isExiting.value) return;
-      translationX.value = withSequence(
-        withTiming(55,  { duration: 250 }),
-        withSpring(0,   { damping: 12 }),
-        withTiming(-30, { duration: 200 }),
-        withSpring(0,   { damping: 12 })
-      );
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []); // empty deps = run once on mount only
-
-  // Notify parent of translation changes for the background card scale effect
-  useDerivedValue(() => {
-    runOnJS(onTranslationChange)(translationX.value);
-  }, [translationX]);
-
-  const gesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .onUpdate((e) => {
-          if (!isExiting.value) {
-            translationX.value = e.translationX;
-          }
-        })
-        .onEnd((e) => {
-          if (isExiting.value) return;
-
-          if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
-            isExiting.value = true;
-            const exitDirection = e.translationX > 0 ? 500 : -500;
-            translationX.value = withTiming(exitDirection, { duration: 200 }, (finished) => {
-              if (finished) {
-                runOnJS(onSwipeComplete)();
-              }
-            });
-          } else {
-            translationX.value = withSpring(0);
-          }
-        }),
-    [isExiting, onSwipeComplete, translationX]
-  );
-
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translationX.value + shakeX.value },
-      {
-        rotateZ: `${interpolate(
-          translationX.value,
-          [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
-          [-15, 0, 15],
-          Extrapolation.CLAMP
-        )}deg`,
-      },
-    ],
-    zIndex: 10,
-  }));
-
-  const errorOverlayStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(errorColorProgress.value, [0, 1], ['transparent', 'rgba(239, 68, 68, 0.25)']),
-    borderColor: interpolateColor(errorColorProgress.value, [0, 1], ['transparent', 'rgba(239, 68, 68, 0.8)']),
-    borderWidth: 2,
-    borderRadius: 12,
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 20,
-    pointerEvents: 'none' as const,
-  }));
-
-  const frontStyle = useAnimatedStyle(() => ({
-    transform: [
-      { perspective: 1000 },
-      { rotateY: `${rotateY.value}deg` },
-    ],
-    backfaceVisibility: 'hidden' as const,
-    ...StyleSheet.absoluteFillObject,
-  }));
-
-  const backStyle = useAnimatedStyle(() => ({
-    transform: [
-      { perspective: 1000 },
-      { rotateY: `${rotateY.value + 180}deg` },
-    ],
-    backfaceVisibility: 'hidden' as const,
-    width: '100%',
-    height: '100%',
-  }));
-
-  return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.card, cardStyle]}>
-        <View className="relative w-full h-full">
-          <Animated.View style={frontStyle}>
-            <Card className="w-full h-full bg-card border-primary/20 relative shadow-md elevation-5">
-              <View className="absolute top-3 left-3 z-10">
-                <Badge variant="secondary">
-                  <Text>{formatPos(item.pos) || item.type}</Text>
-                </Badge>
-              </View>
-              <CardContent className="w-full h-full items-center justify-center p-6">
-                <Text className="text-4xl font-bold text-center">{item.korean}</Text>
-              </CardContent>
-            </Card>
-          </Animated.View>
-
-          <Animated.View style={backStyle}>
-            <Card className="w-full h-full items-center justify-center bg-success dark:bg-success border-success dark:border-success shadow-md elevation-5">
-              <CardContent className="items-center justify-center p-6">
-                <Text className="text-3xl font-bold text-center text-success-foreground mb-2">
-                  {item.indonesian}
-                </Text>
-                {item.exampleSentences?.[0] && (
-                  <Text className="text-xs text-center text-success-foreground/80 mt-2 italic">
-                    "{item.exampleSentences[0]}"
-                  </Text>
-                )}
-                <View className="flex-row items-center mt-4 bg-success-foreground/20 dark:bg-success-foreground/30 px-3 py-1 rounded-full">
-                  <Icon as={Check} size={16} className="text-success-foreground mr-1" />
-                  <Text className="text-xs font-medium text-success-foreground">Benar!</Text>
-                </View>
-              </CardContent>
-            </Card>
-          </Animated.View>
-
-          <Animated.View style={errorOverlayStyle} />
-        </View>
-      </Animated.View>
-    </GestureDetector>
-  );
-}
-
-interface BackgroundCardProps {
-  item: VocabularyItem;
-  activeTranslation: number;
-}
-
-// Background card - purely visual, scales based on active card's translation
-function BackgroundCard({ item, activeTranslation }: BackgroundCardProps) {
-  const scale = useSharedValue(0.9);
-
-  useEffect(() => {
-    const targetScale = interpolate(
-      Math.abs(activeTranslation),
-      [0, SCREEN_WIDTH / 2],
-      [0.9, 1],
-      Extrapolation.CLAMP
-    );
-    scale.value = withTiming(targetScale, { duration: 16 });
-  }, [activeTranslation, scale]);
-
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    zIndex: 5,
-  }));
-
-  return (
-    <Animated.View style={[styles.card, styles.cardInactive, cardStyle]}>
-      <Card className="w-full h-full bg-card border-primary/20 relative shadow-md elevation-5">
-        <View className="absolute top-3 left-3 z-10">
-          <Badge variant="secondary">
-            <Text>{formatPos(item.pos) || item.type}</Text>
-          </Badge>
-        </View>
-        <CardContent className="w-full h-full items-center justify-center p-6">
-          <Text className="text-4xl font-bold text-center">{item.korean}</Text>
-        </CardContent>
-      </Card>
-    </Animated.View>
-  );
-}
+import { ActiveCard } from '@/components/vocab/daily-vocabulary-active-card';
+import { BackgroundCard } from '@/components/vocab/daily-vocabulary-background-card';
+import { dailyVocabularyStyles } from '@/components/vocab/daily-vocabulary-styles';
 
 interface DailyVocabularyProps {
   onInputFocusChange?: (isFocused: boolean) => void;
@@ -458,7 +216,7 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
   if (loading) {
     return (
       <View className="w-full max-w-md mx-auto gap-6">
-        <View style={styles.cardStack}>
+        <View style={dailyVocabularyStyles.cardStack}>
           <Skeleton className="w-full h-full rounded-xl" />
         </View>
         <View className="gap-4">
@@ -490,18 +248,9 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
 
   return (
     <View className="w-full max-w-md mx-auto gap-6">
-      {/* Learned Alert */}
-      {learnedAlert && (
-        <Alert icon={Trophy} iconClassName="text-success" className="mb-2">
-          <Text className="text-success pl-6 font-medium">
-            Kamu berhasil hafal kosa kata "{learnedAlert.word}"!
-          </Text>
-        </Alert>
-      )}
-
-      <View style={styles.cardStack}>
+      <View style={dailyVocabularyStyles.cardStack}>
         {/* Word count indicator - top right corner */}
-        <View style={styles.wordCountBadge}>
+        <View style={dailyVocabularyStyles.wordCountBadge}>
           <Text className="text-sm font-medium text-muted-foreground">
             {processedItems.size}/{vocabList.length}
           </Text>
@@ -509,7 +258,7 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
 
         {/* Correct attempts progress indicator - top left corner */}
         {currentVocab && (
-          <View style={styles.progressBadge}>
+          <View style={dailyVocabularyStyles.progressBadge}>
             <View className="flex-row items-center gap-1">
               {Array.from({ length: 3 }).map((_, i) => (
                 <View
@@ -527,7 +276,7 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
 
         {/* Hint text - bottom center of card */}
         {showHint && currentVocab && (
-          <View style={styles.hintText}>
+          <View style={dailyVocabularyStyles.hintText}>
             <Text className="text-xs text-muted-foreground text-center">
               Petunjuk: Dimulai dengan "{currentVocab.indonesian[0]}..." ({currentVocab.indonesian.length} huruf)
             </Text>
@@ -545,7 +294,7 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
 
         {/* Skeleton overlay when refreshing */}
         {refreshing && (
-          <View style={styles.refreshingOverlay}>
+          <View style={dailyVocabularyStyles.refreshingOverlay}>
             <Skeleton className="w-full h-full rounded-xl" />
           </View>
         )}
@@ -560,6 +309,7 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
             onSwipeComplete={nextCard}
             onTranslationChange={handleTranslationChange}
             index={currentIndex}
+            learnedAlert={learnedAlert}
           />
         )}
       </View>
@@ -594,62 +344,7 @@ export function DailyVocabulary({ onInputFocusChange, onStatsUpdate }: DailyVoca
             </View>
           </>
         )}
-
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-  },
-  cardInactive: {
-    top: 0,
-    left: 0,
-  },
-  cardStack: {
-    height: 200,
-    width: '100%',
-    position: 'relative',
-  },
-  wordCountBadge: {
-    position: 'absolute',
-    top: -35,
-    right: 8,
-    zIndex: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  hintText: {
-    position: 'absolute',
-    bottom: 8,
-    left: 0,
-    right: 0,
-    zIndex: 25,
-    alignItems: 'center',
-  },
-  refreshingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 30,
-  },
-  progressBadge: {
-    position: 'absolute',
-    top: 5,
-    left: '50%',
-    transform: [{ translateX: -25 }],
-    zIndex: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-});
