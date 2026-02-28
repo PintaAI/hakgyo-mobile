@@ -20,6 +20,7 @@ import {
   AlertCircle,
   DollarSign,
   Star,
+  TestTube,
 } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -287,14 +288,25 @@ export default function ProfileScreen() {
             )}
           </CardContent>
         </Card>
-        {/* Color Test Button */}
-        <Button
-          variant="outline"
-          onPress={() => router.push('/color-test')}
-          className="w-full"
-        >
-          <Text>Color Test</Text>
-        </Button>
+        {/* Test Buttons */}
+        <View className="gap-3">
+          <Button
+            variant="outline"
+            onPress={() => router.push('/vocab-form-test')}
+            className="w-full flex-row gap-2"
+          >
+            <Icon as={TestTube} size={18} className="text-foreground" />
+            <Text>Vocab Form Test</Text>
+          </Button>
+
+          <Button
+            variant="outline"
+            onPress={() => router.push('/color-test')}
+            className="w-full"
+          >
+            <Text>Color Test</Text>
+          </Button>
+        </View>
 
         {/* Sign Out */}
         <SignoutButton className="w-full" />
